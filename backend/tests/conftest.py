@@ -34,6 +34,7 @@ TEST_BIZ_NAMES = [
     "WSBizA",
     "WSBizB",
     "BizAgent-iso",
+    "RateLimitBiz",
 ]
 
 # Businesses that must NEVER be touched by test cleanup
@@ -97,8 +98,13 @@ async def _register(client: AsyncClient, business: str, email: str, password: st
     return r.json()
 
 
-async def _login(client: AsyncClient, email: str, password: str = "pass1234"):
-    r = await client.post("/auth/login", json={"email": email, "password": password})
+async def _login(client: AsyncClient, email: str, password: str = "pass1234", device_id: str | None = None):
+    dev = device_id or f"test-device-{email}"
+    r = await client.post(
+        "/auth/login",
+        json={"email": email, "password": password},
+        headers={"X-Device-Id": dev},
+    )
     assert r.status_code == 200, r.text
     return r.json()
 

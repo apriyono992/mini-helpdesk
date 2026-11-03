@@ -1,9 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
+from app.core.deps import CurrentUser
+from app.core.limiter import limiter
 from app.db.session import AsyncSessionDep
 from app.schemas.auth import RegisterBusiness, LoginRequest, TokenResponse, RefreshRequest, UserOut
 from app.services import auth_service
-from app.core.deps import CurrentUser
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -14,7 +15,8 @@ async def register_business(data: RegisterBusiness, session: AsyncSessionDep):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(data: LoginRequest, session: AsyncSessionDep):
+@limiter.limit("5/minute")
+async def login(request: Request, data: LoginRequest, session: AsyncSessionDep):
     return await auth_service.login(data, session)
 
 

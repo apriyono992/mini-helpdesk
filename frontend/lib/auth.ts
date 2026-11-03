@@ -20,3 +20,15 @@ export function clearTokens(): void {
   localStorage.removeItem(ACCESS_KEY);
   localStorage.removeItem(REFRESH_KEY);
 }
+
+const DEVICE_ID_KEY = "device_id";
+
+export function getDeviceId(): string {
+  if (typeof window === "undefined") return "server";
+  let devId = localStorage.getItem(DEVICE_ID_KEY);
+  if (!devId) {
+    devId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : "dev-" + Math.random().toString(36).substring(2);
+    localStorage.setItem(DEVICE_ID_KEY, devId);
+  }
+  return devId;
+}

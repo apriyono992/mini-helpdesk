@@ -1,4 +1,4 @@
-import { getAccessToken, getRefreshToken, saveTokens, clearTokens } from "./auth";
+import { getAccessToken, getRefreshToken, saveTokens, clearTokens, getDeviceId } from "./auth";
 import type { User, Ticket, Message, TokenResponse, TicketStatus, Category, TicketPriority } from "./types";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -7,6 +7,7 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
   const token = getAccessToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    "X-Device-Id": getDeviceId(),
     ...(init.headers as Record<string, string>),
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;

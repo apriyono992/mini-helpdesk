@@ -54,3 +54,36 @@ async def test_access_token_rejected_as_refresh(client: AsyncClient):
     tokens = await _register(client, "BadRefreshBiz", "bad-refresh@biz.com")
     r = await client.post("/auth/refresh", json={"refresh_token": tokens["access_token"]})
     assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_login_rate_limiting_by_device_id(client: AsyncClient):
+    await _register(client, "RateLimitBiz", "ratelimit@biz.com")
+    device_a = "device-test-aaa"
+    device_b = "device-test-bbb"
+
+    # 5 attempts allowed for device A
+    for _ in range(5):
+        r = await client.post(
+            "/auth/login",
+            json={"email": "ratelimit@biz.com", "password": "wrong"},
+            headers={"X-Device-Id": device_a},
+        )
+        assert r.status_code == 401
+
+    # 6th attempt from device A is rate limited
+    r_blocked = await client.post(
+        "/auth/login",
+        json={"email": "ratelimit@biz.com", "password": "wrong"},
+        headers={"X-Device-Id": device_a},
+    )
+    assert r_blocked.status_code == 429
+    assert r_blocked.json().get("code") == "rate_limit_exceeded"
+
+    # Device B is not blocked
+    r_b = await client.post(
+        "/auth/login",
+        json={"email": "ratelimit@biz.com", "password": "pass1234"},
+        headers={"X-Device-Id": device_b},
+    )
+    assert r_b.status_code == 200
