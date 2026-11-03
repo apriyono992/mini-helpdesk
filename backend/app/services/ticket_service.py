@@ -4,7 +4,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
 
-from app.models.ticket import Ticket, TicketStatus
+from app.models.ticket import Ticket, TicketPriority, TicketStatus
 from app.models.message import Message
 from app.models.ticket_read import TicketRead
 from app.models.user import User, UserRole
@@ -112,6 +112,8 @@ async def list_tickets(
     user: User,
     session: AsyncSession,
     status_filter: TicketStatus | None = None,
+    category_filter: str | None = None,
+    priority_filter: TicketPriority | None = None,
     search: str | None = None,
     page: int = 1,
     limit: int = 20,
@@ -145,9 +147,23 @@ async def list_tickets(
 
     if status_filter:
         base_query = base_query.where(Ticket.status == status_filter)
+    if category_filter:
+        base_query = base_query.where(Ticket.category == category_filter)
+    if priority_filter:
+        base_query = base_query.where(Ticket.priority == priority_filter)
     if search and search.strip():
-        term = f"%{search.strip()}%"
-        base_query = base_query.where(Ticket.subject.ilike(term))
+        raw = search.strip()
+        search_id = None
+        if raw.startswith("#") and raw[1:].isdigit():
+            search_id = int(raw[1:])
+        elif raw.isdigit():
+            search_id = int(raw)
+
+        term = f"%{raw}%"
+        if search_id is not None:
+            base_query = base_query.where(or_(Ticket.id == search_id, Ticket.subject.ilike(term)))
+        else:
+            base_query = base_query.where(Ticket.subject.ilike(term))
 
     count_query = select(func.count()).select_from(base_query.subquery())
     total_res = await session.execute(count_query)

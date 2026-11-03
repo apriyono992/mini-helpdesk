@@ -2,7 +2,7 @@ from fastapi import APIRouter, File, Query, UploadFile
 
 from app.core.deps import CurrentUser
 from app.db.session import AsyncSessionDep
-from app.models.ticket import TicketStatus
+from app.models.ticket import TicketPriority, TicketStatus
 from app.schemas.error import ErrorResponse
 from app.schemas.ticket import AttachmentOut, TicketCreate, TicketOut, TicketPaginationOut, TicketPatch
 from app.schemas.message import MessageOut
@@ -34,13 +34,15 @@ async def create_ticket(data: TicketCreate, user: CurrentUser, session: AsyncSes
     "",
     response_model=TicketPaginationOut,
     summary="List tickets with pagination and filtering",
-    description="Returns tickets in tenant business with optional filters for status, search query, assignment, and agent ID.",
+    description="Returns tickets in tenant business with optional filters for status, category, priority, search query, assignment, and agent ID.",
 )
 async def list_tickets(
     user: CurrentUser,
     session: AsyncSessionDep,
     status: TicketStatus | None = Query(default=None, description="Filter by status (open, in_progress, resolved, closed)"),
-    search: str | None = Query(default=None, description="Search ticket subject"),
+    category: str | None = Query(default=None, description="Filter by category"),
+    priority: TicketPriority | None = Query(default=None, description="Filter by priority (low, medium, high)"),
+    search: str | None = Query(default=None, description="Search ticket subject or #ID"),
     page: int = Query(default=1, ge=1, description="Page number"),
     limit: int = Query(default=20, ge=1, le=100, description="Items per page"),
     assigned: str | None = Query(default=None, pattern="^(unassigned|mine)$", description="Filter assigned to current agent or unassigned"),
@@ -50,6 +52,8 @@ async def list_tickets(
         user,
         session,
         status_filter=status,
+        category_filter=category,
+        priority_filter=priority,
         search=search,
         page=page,
         limit=limit,

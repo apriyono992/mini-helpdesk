@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { TicketList } from "@/components/TicketList";
 import { Navbar } from "@/components/Navbar";
 import { createBusinessSocket } from "@/lib/ws";
-import type { Ticket, TicketStatus, User } from "@/lib/types";
+import type { Category, Ticket, TicketPriority, TicketStatus, User } from "@/lib/types";
 
 const STATUSES: TicketStatus[] = ["open", "in_progress", "resolved", "closed"];
 const STATUS_LABEL: Record<TicketStatus, string> = {
@@ -20,30 +20,34 @@ const STATUS_LABEL: Record<TicketStatus, string> = {
 export default function TicketsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; category?: string; priority?: string; q?: string }>;
 }) {
-  const { status: statusParam } = use(searchParams);
+  const resolvedParams = use(searchParams);
   const router = useRouter();
   const { user, loading: authLoading, logout } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [agents, setAgents] = useState<User[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [bulkAgentId, setBulkAgentId] = useState<string>("");
   const [bulkLoading, setBulkLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Search & Pagination
-  const [searchInput, setSearchInput] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
+  // Search & Filters & Pagination
+  const [searchInput, setSearchInput] = useState(resolvedParams.q ?? "");
+  const [searchTerm, setSearchTerm] = useState(resolvedParams.q ?? "");
+  const [selectedCategory, setSelectedCategory] = useState<string>(resolvedParams.category ?? "");
+  const [selectedPriority, setSelectedPriority] = useState<string>(resolvedParams.priority ?? "");
   const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
 
-  const activeStatus = STATUSES.includes(statusParam as TicketStatus)
-    ? (statusParam as TicketStatus)
+  const activeStatus = STATUSES.includes(resolvedParams.status as TicketStatus)
+    ? (resolvedParams.status as TicketStatus)
     : undefined;
 
   const assignedParam =
@@ -80,9 +84,11 @@ export default function TicketsPage({
             api.tickets
               .list({
                 status: activeStatus,
-                search: searchTerm,
+                category: selectedCategory || undefined,
+                priority: (selectedPriority as TicketPriority) || undefined,
+                search: searchTerm || undefined,
                 page,
-                limit: 10,
+                limit: pageSize,
                 assigned: assignedParam,
                 agent_id: agentIdParam,
               })
@@ -129,7 +135,7 @@ export default function TicketsPage({
       if (timer) clearTimeout(timer);
       ws?.close();
     };
-  }, [user, activeStatus, searchTerm, page, assignedParam, agentIdParam]);
+  }, [user, activeStatus, searchTerm, page, pageSize, selectedCategory, selectedPriority, assignedParam, agentIdParam]);
 
   useEffect(() => {
     if (!toast) return;
@@ -149,7 +155,7 @@ export default function TicketsPage({
   // Reset page when filter changes
   useEffect(() => {
     setPage(1);
-  }, [activeStatus, assignmentFilter]);
+  }, [activeStatus, assignmentFilter, selectedCategory, selectedPriority, pageSize]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -161,9 +167,11 @@ export default function TicketsPage({
     api.tickets
       .list({
         status: activeStatus,
-        search: searchTerm,
+        category: selectedCategory || undefined,
+        priority: (selectedPriority as TicketPriority) || undefined,
+        search: searchTerm || undefined,
         page,
-        limit: 10,
+        limit: pageSize,
         assigned: assignedParam,
         agent_id: agentIdParam,
       })
@@ -175,7 +183,19 @@ export default function TicketsPage({
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Error"))
       .finally(() => setLoading(false));
-  }, [authLoading, user, activeStatus, searchTerm, page, assignedParam, agentIdParam, router]);
+  }, [
+    authLoading,
+    user,
+    activeStatus,
+    searchTerm,
+    page,
+    pageSize,
+    selectedCategory,
+    selectedPriority,
+    assignedParam,
+    agentIdParam,
+    router,
+  ]);
 
   useEffect(() => {
     if (user?.role === "admin") {
@@ -183,6 +203,9 @@ export default function TicketsPage({
         .list()
         .then((u) => setAgents(u.filter((x) => x.role === "agent")))
         .catch(() => {});
+    }
+    if (user) {
+      api.categories.list().then(setCategories).catch(() => {});
     }
   }, [user]);
 
@@ -278,7 +301,7 @@ export default function TicketsPage({
           <div className="relative">
             <input
               type="text"
-              placeholder="Search tickets by subject..."
+              placeholder="Search tickets by subject or #ID..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
@@ -294,62 +317,118 @@ export default function TicketsPage({
             )}
           </div>
 
-          {/* Filter tabs and Assignee dropdown */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex gap-1 flex-wrap">
+          {/* Status Tabs */}
+          <div className="flex gap-1 flex-wrap items-center">
+            <Link
+              href="/tickets"
+              className={`rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-medium transition-colors ${
+                !activeStatus
+                  ? "bg-indigo-600 text-white"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              }`}
+            >
+              All Status
+            </Link>
+            {STATUSES.map((s) => (
               <Link
-                href="/tickets"
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                  !activeStatus
+                key={s}
+                href={`/tickets?status=${s}`}
+                className={`rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-medium transition-colors ${
+                  activeStatus === s
                     ? "bg-indigo-600 text-white"
                     : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                 }`}
               >
-                All
+                {STATUS_LABEL[s]}
               </Link>
-              {STATUSES.map((s) => (
-                <Link
-                  key={s}
-                  href={`/tickets?status=${s}`}
-                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                    activeStatus === s
-                      ? "bg-indigo-600 text-white"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                  }`}
+            ))}
+          </div>
+
+          {/* Filter Bar (Category, Priority, Assignee, Limit, Reset) */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Category Filter */}
+              <select
+                aria-label="Filter by category"
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="">All Categories</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Priority Filter */}
+              <select
+                aria-label="Filter by priority"
+                value={selectedPriority}
+                onChange={(e) => setSelectedPriority(e.target.value)}
+                className="rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="">All Priorities</option>
+                <option value="high">High Priority</option>
+                <option value="medium">Medium Priority</option>
+                <option value="low">Low Priority</option>
+              </select>
+
+              {/* Assignee Filter */}
+              {(user?.role === "admin" || user?.role === "agent") && (
+                <select
+                  aria-label="Filter by assignee"
+                  value={assignmentFilter}
+                  onChange={(e) => setAssignmentFilter(e.target.value)}
+                  className="rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
-                  {STATUS_LABEL[s]}
-                </Link>
-              ))}
+                  <option value="all">All Assignees</option>
+                  <option value="unassigned">Unassigned</option>
+                  <option value="mine">Assigned to Me</option>
+                  {user?.role === "admin" &&
+                    agents.map((ag) => (
+                      <option key={ag.id} value={`agent:${ag.id}`}>
+                        {ag.full_name}
+                      </option>
+                    ))}
+                </select>
+              )}
+
+              {/* Items Per Page */}
+              <select
+                aria-label="Items per page"
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value={10}>10 / page</option>
+                <option value={25}>25 / page</option>
+                <option value={50}>50 / page</option>
+              </select>
+
+              {/* Reset button */}
+              {(searchInput || selectedCategory || selectedPriority || assignmentFilter !== "all") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchInput("");
+                    setSearchTerm("");
+                    setSelectedCategory("");
+                    setSelectedPriority("");
+                    setAssignmentFilter("all");
+                    setPage(1);
+                  }}
+                  className="rounded-lg bg-gray-200/80 hover:bg-gray-200 text-gray-700 px-2 py-1 text-xs font-medium transition-colors"
+                >
+                  Reset filters ✕
+                </button>
+              )}
             </div>
 
-            <div className="flex items-center justify-between sm:justify-end gap-3">
-              {(user?.role === "admin" || user?.role === "agent") && (
-                <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                  <label htmlFor="assignment-filter" className="whitespace-nowrap font-medium">
-                    Assignee:
-                  </label>
-                  <select
-                    id="assignment-filter"
-                    value={assignmentFilter}
-                    onChange={(e) => setAssignmentFilter(e.target.value)}
-                    className="rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-800 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  >
-                    <option value="all">All</option>
-                    <option value="unassigned">Unassigned</option>
-                    <option value="mine">Assigned to Me</option>
-                    {user?.role === "admin" &&
-                      agents.map((ag) => (
-                        <option key={ag.id} value={`agent:${ag.id}`}>
-                          {ag.full_name}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              )}
-              <span className="text-xs text-gray-500 whitespace-nowrap">
-                {totalCount} {totalCount === 1 ? "ticket" : "tickets"}
-              </span>
-            </div>
+            <span className="text-xs text-gray-500 whitespace-nowrap ml-auto">
+              {totalCount} {totalCount === 1 ? "ticket" : "tickets"}
+            </span>
           </div>
         </div>
 
@@ -395,23 +474,44 @@ export default function TicketsPage({
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-2 py-2 text-sm text-gray-600">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-sm text-gray-600 bg-white rounded-xl border border-gray-200 shadow-sm">
                 <button
                   type="button"
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm transition-colors"
                 >
                   ← Previous
                 </button>
-                <span className="text-xs text-gray-500 font-medium">
-                  Page {page} of {totalPages}
-                </span>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                    .map((p, idx, arr) => (
+                      <span key={p} className="flex items-center">
+                        {idx > 0 && p - arr[idx - 1] > 1 && (
+                          <span className="px-1 text-gray-400 text-xs">…</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setPage(p)}
+                          className={`min-w-7 h-7 px-2 rounded-lg text-xs font-medium transition-colors ${
+                            page === p
+                              ? "bg-indigo-600 text-white"
+                              : "text-gray-700 hover:bg-gray-100"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      </span>
+                    ))}
+                </div>
+
                 <button
                   type="button"
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm transition-colors"
                 >
                   Next →
                 </button>

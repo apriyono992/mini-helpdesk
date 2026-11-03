@@ -186,12 +186,30 @@ async def test_ticket_search_and_pagination_isolation(client: AsyncClient):
     c_b_token = (await _login(client, "cust-search-b@biz.com"))["access_token"]
 
     # Customer A creates 3 tickets
-    await _create_ticket(client, c_a_token, "ALPHA issue with printer")
-    await _create_ticket(client, c_a_token, "ALPHA payment failure")
-    await _create_ticket(client, c_a_token, "BETA network down")
+    t1 = await _create_ticket(client, c_a_token, "ALPHA issue with printer", category="hardware", priority="high")
+    t2 = await _create_ticket(client, c_a_token, "ALPHA payment failure", category="billing", priority="low")
+    t3 = await _create_ticket(client, c_a_token, "BETA network down", category="hardware", priority="medium")
 
     # Customer B creates 1 ticket with ALPHA in subject
-    await _create_ticket(client, c_b_token, "ALPHA secret server down")
+    await _create_ticket(client, c_b_token, "ALPHA secret server down", category="hardware", priority="high")
+
+    # Search by #ID
+    r_id = await client.get(f"/tickets?search=%23{t1['id']}", headers={"Authorization": f"Bearer {c_a_token}"})
+    assert r_id.status_code == 200
+    assert r_id.json()["total"] == 1
+    assert r_id.json()["items"][0]["id"] == t1["id"]
+
+    # Filter by category
+    r_cat = await client.get("/tickets?category=hardware", headers={"Authorization": f"Bearer {c_a_token}"})
+    assert r_cat.status_code == 200
+    assert r_cat.json()["total"] == 2
+    assert {it["id"] for it in r_cat.json()["items"]} == {t1["id"], t3["id"]}
+
+    # Filter by priority
+    r_pri = await client.get("/tickets?priority=high", headers={"Authorization": f"Bearer {c_a_token}"})
+    assert r_pri.status_code == 200
+    assert r_pri.json()["total"] == 1
+    assert r_pri.json()["items"][0]["id"] == t1["id"]
 
     # Customer A searches "ALPHA" -> gets only 2 tickets from Biz A
     r_a = await client.get("/tickets?search=ALPHA", headers={"Authorization": f"Bearer {c_a_token}"})

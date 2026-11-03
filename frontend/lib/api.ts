@@ -74,6 +74,8 @@ export const api = {
   tickets: {
     list: (params?: {
       status?: TicketStatus;
+      category?: string;
+      priority?: TicketPriority;
       search?: string;
       page?: number;
       limit?: number;
@@ -82,6 +84,8 @@ export const api = {
     }) => {
       const query = new URLSearchParams();
       if (params?.status) query.set("status", params.status);
+      if (params?.category) query.set("category", params.category);
+      if (params?.priority) query.set("priority", params.priority);
       if (params?.search) query.set("search", params.search);
       if (params?.page) query.set("page", String(params.page));
       if (params?.limit) query.set("limit", String(params.limit));

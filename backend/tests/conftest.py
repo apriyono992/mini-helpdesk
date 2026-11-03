@@ -129,10 +129,18 @@ async def _create_user(client: AsyncClient, token: str, email: str, role: str, p
     return r.json()
 
 
-async def _create_ticket(client: AsyncClient, token: str, subject: str = "Test subject"):
+async def _create_ticket(
+    client: AsyncClient,
+    token: str,
+    subject: str = "Test subject",
+    category: str = "general",
+    priority: str = "medium",
+):
     r = await client.post("/tickets", json={
         "subject": subject,
         "first_message": "Hello",
+        "category": category,
+        "priority": priority,
     }, headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 201, r.text
     return r.json()
