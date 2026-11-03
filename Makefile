@@ -26,3 +26,12 @@ test:
 
 seed:
 	cd $(BACKEND_DIR) && .venv/bin/python scripts/seed.py
+
+docker-build:
+	docker compose build
+
+docker-up:
+	docker compose up -d
+
+docker-down:
+	docker compose down
