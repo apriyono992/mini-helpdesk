@@ -43,6 +43,9 @@ async def ticket_ws(ticket_id: int, websocket: WebSocket, token: str = ""):
         if user.role == UserRole.customer and ticket.customer_id != user.id:
             await websocket.close(code=1008)
             return
+        if user.role == UserRole.agent and ticket.agent_id != user.id:
+            await websocket.close(code=1008)
+            return
 
     await manager.connect(ticket_id, websocket)
     try:
@@ -73,5 +76,5 @@ async def ticket_ws(ticket_id: int, websocket: WebSocket, token: str = ""):
                 "body": body,
                 "created_at": msg.created_at.isoformat(),
             })
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, Exception):
         manager.disconnect(ticket_id, websocket)

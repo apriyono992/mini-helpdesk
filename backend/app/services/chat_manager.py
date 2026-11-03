@@ -11,11 +11,16 @@ class ConnectionManager:
         self._connections[ticket_id].append(ws)
 
     def disconnect(self, ticket_id: int, ws: WebSocket) -> None:
-        self._connections[ticket_id].remove(ws)
+        conns = self._connections.get(ticket_id, [])
+        if ws in conns:
+            conns.remove(ws)
 
     async def broadcast(self, ticket_id: int, data: dict) -> None:
-        for ws in list(self._connections[ticket_id]):
-            await ws.send_json(data)
+        for ws in list(self._connections.get(ticket_id, [])):
+            try:
+                await ws.send_json(data)
+            except Exception:
+                self.disconnect(ticket_id, ws)
 
 
 manager = ConnectionManager()
