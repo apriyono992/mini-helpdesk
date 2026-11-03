@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
+import { Navbar } from "@/components/Navbar";
 
 
 export default function NewTicketPage() {
@@ -37,17 +38,15 @@ export default function NewTicketPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-10 bg-white border-b border-gray-200">
-        <div className="mx-auto max-w-3xl px-4 sm:px-6 flex items-center h-14">
-          <button
-            onClick={() => router.back()}
-            className="text-sm text-gray-500 hover:text-gray-900 transition-colors mr-4"
-          >
-            ← Back
-          </button>
-          <span className="font-semibold text-gray-900">New ticket</span>
-        </div>
-      </header>
+      <Navbar user={user ?? null}>
+        <button
+          onClick={() => router.back()}
+          className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+        >
+          ← Back
+        </button>
+        <span className="font-medium text-gray-900 text-sm">New ticket</span>
+      </Navbar>
 
       <main className="mx-auto max-w-lg px-4 sm:px-6 py-8">
         <div className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm">

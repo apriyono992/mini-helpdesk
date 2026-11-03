@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { TicketList } from "@/components/TicketList";
+import { Navbar } from "@/components/Navbar";
 import type { Ticket, TicketStatus } from "@/lib/types";
 
 const STATUSES: TicketStatus[] = ["open", "in_progress", "resolved", "closed"];
@@ -52,32 +53,21 @@ export default function TicketsPage({
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <header className="sticky top-0 z-10 bg-white border-b border-gray-200">
-        <div className="mx-auto max-w-3xl px-4 sm:px-6 flex items-center justify-between h-14">
-          <span className="font-semibold text-gray-900 tracking-tight">HelpDesk</span>
-          <div className="flex items-center gap-4">
-            {user?.role === "admin" && (
-              <Link href="/admin/users" className="text-sm text-gray-600 hover:text-gray-900">
-                Users
-              </Link>
-            )}
-            {user?.role === "customer" && (
-              <Link
-                href="/tickets/new"
-                className="rounded-lg bg-indigo-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
-              >
-                New ticket
-              </Link>
-            )}
-            <button
-              onClick={logout}
-              className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
+      <Navbar user={user ?? null} onLogout={logout}>
+        {user?.role === "admin" && (
+          <Link href="/admin/users" className="text-sm text-gray-600 hover:text-gray-900">
+            Users
+          </Link>
+        )}
+        {user?.role === "customer" && (
+          <Link
+            href="/tickets/new"
+            className="rounded-lg bg-indigo-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+          >
+            New ticket
+          </Link>
+        )}
+      </Navbar>
 
       <main className="mx-auto max-w-3xl px-4 sm:px-6 py-6 space-y-4">
         {/* Filter tabs */}

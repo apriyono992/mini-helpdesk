@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import type { User } from "@/lib/types";
 import { PasswordInput } from "@/components/PasswordInput";
+import { Navbar } from "@/components/Navbar";
 
 
 export default function AdminUsersPage() {
@@ -51,17 +52,14 @@ export default function AdminUsersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-10 bg-white border-b border-gray-200">
-        <div className="mx-auto max-w-3xl px-4 sm:px-6 flex items-center justify-between h-14">
-          <span className="font-semibold text-gray-900 tracking-tight">HelpDesk</span>
-          <button
-            onClick={() => router.push("/tickets")}
-            className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-          >
-            ← Tickets
-          </button>
-        </div>
-      </header>
+      <Navbar user={user ?? null}>
+        <button
+          onClick={() => router.push("/tickets")}
+          className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+        >
+          ← Tickets
+        </button>
+      </Navbar>
 
       <main className="mx-auto max-w-3xl px-4 sm:px-6 py-6 space-y-6">
         <h1 className="text-xl font-semibold text-gray-900">Users</h1>

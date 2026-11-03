@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTicketSocket } from "@/hooks/useTicketSocket";
 import { ChatPanel } from "@/components/ChatPanel";
 import { TicketInfoPanel } from "@/components/TicketInfoPanel";
+import { Navbar } from "@/components/Navbar";
 import type { Ticket, Message } from "@/lib/types";
 
 
@@ -57,17 +58,15 @@ export default function TicketDetailPage({
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       {/* Header */}
-      <header className="shrink-0 bg-white border-b border-gray-200 z-10">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 flex items-center gap-3 h-14">
-          <button
-            onClick={() => router.push("/tickets")}
-            className="text-sm text-gray-500 hover:text-gray-900 transition-colors shrink-0"
-          >
-            ← Back
-          </button>
-          <h1 className="text-sm font-semibold text-gray-900 truncate">{ticket.subject}</h1>
-        </div>
-      </header>
+      <Navbar user={user}>
+        <button
+          onClick={() => router.push("/tickets")}
+          className="text-sm text-gray-500 hover:text-gray-900 transition-colors shrink-0"
+        >
+          ← Back
+        </button>
+        <h1 className="text-sm font-semibold text-gray-900 truncate">{ticket.subject}</h1>
+      </Navbar>
 
       {/* Body */}
       <div className="flex-1 min-h-0 mx-auto w-full max-w-5xl px-4 sm:px-6 py-4 flex flex-col md:flex-row gap-4">
