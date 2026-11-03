@@ -38,33 +38,41 @@ export default function TicketDetailPage({
       .finally(() => setLoading(false));
   }, [authLoading, user, ticketId, router]);
 
-  const { messages, send } = useTicketSocket(ticketId, initialMessages);
+  const { messages, send } = useTicketSocket(ticketId, initialMessages, (patch) => {
+    setTicket((prev) => prev ? { ...prev, ...patch } : prev);
+  });
 
   if (authLoading || loading) {
-    return <div className="flex min-h-screen items-center justify-center">Loading…</div>;
+    return <div className="flex min-h-screen items-center justify-center text-gray-400">Loading…</div>;
   }
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-red-600">{error}</p>
+        <p className="text-red-500 text-sm">{error}</p>
       </div>
     );
   }
   if (!ticket || !user) return null;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-4 h-screen flex flex-col gap-4">
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => router.push("/tickets")}
-          className="text-sm text-blue-600 hover:underline"
-        >
-          ← Back
-        </button>
-        <h1 className="text-lg font-semibold truncate">{ticket.subject}</h1>
-      </div>
-      <div className="flex flex-col md:flex-row gap-4 flex-1 min-h-0">
-        <div className="flex-1 border rounded-lg bg-white shadow-sm overflow-hidden flex flex-col">
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Header */}
+      <header className="shrink-0 bg-white border-b border-gray-200 z-10">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 flex items-center gap-3 h-14">
+          <button
+            onClick={() => router.push("/tickets")}
+            className="text-sm text-gray-500 hover:text-gray-900 transition-colors shrink-0"
+          >
+            ← Back
+          </button>
+          <h1 className="text-sm font-semibold text-gray-900 truncate">{ticket.subject}</h1>
+        </div>
+      </header>
+
+      {/* Body */}
+      <div className="flex-1 min-h-0 mx-auto w-full max-w-5xl px-4 sm:px-6 py-4 flex flex-col md:flex-row gap-4">
+        {/* Chat */}
+        <div className="flex-1 min-h-0 rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden flex flex-col">
           <ChatPanel
             messages={messages}
             currentUser={user}
@@ -72,7 +80,8 @@ export default function TicketDetailPage({
             onSend={send}
           />
         </div>
-        <div className="md:w-64 shrink-0">
+        {/* Info panel */}
+        <div className="md:w-60 shrink-0">
           <TicketInfoPanel
             ticket={ticket}
             currentUser={user}
