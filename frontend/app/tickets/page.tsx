@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { TicketList } from "@/components/TicketList";
 import { Navbar } from "@/components/Navbar";
+import { createBusinessSocket } from "@/lib/ws";
 import type { Ticket, TicketStatus, User } from "@/lib/types";
 
 const STATUSES: TicketStatus[] = ["open", "in_progress", "resolved", "closed"];
@@ -38,10 +39,85 @@ export default function TicketsPage({
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [toast, setToast] = useState<string | null>(null);
 
   const activeStatus = STATUSES.includes(statusParam as TicketStatus)
     ? (statusParam as TicketStatus)
     : undefined;
+
+  // Real-time Business Notifications Socket
+  useEffect(() => {
+    if (!user) return;
+    let ws: WebSocket | null = null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let unmounted = false;
+
+    function connect() {
+      if (unmounted) return;
+      ws = createBusinessSocket(
+        (data: unknown) => {
+          const ev = data as {
+            type: string;
+            ticket_id?: number;
+            id?: number;
+            subject?: string;
+            status?: TicketStatus;
+            agent_id?: number | null;
+          };
+          if (ev.type === "ticket_created") {
+            setToast(`New ticket: "${ev.subject}"`);
+            api.tickets
+              .list({ status: activeStatus, search: searchTerm, page, limit: 10 })
+              .then((res) => {
+                setTickets(res.items);
+                setTotalPages(res.pages);
+                setTotalCount(res.total);
+              })
+              .catch(() => {});
+          } else if (ev.type === "ticket_update") {
+            const tId = ev.id ?? ev.ticket_id;
+            setToast(`Ticket #${tId} updated: ${ev.status ?? "reassigned"}`);
+            setTickets((prev) =>
+              prev.map((t) =>
+                t.id === tId
+                  ? {
+                      ...t,
+                      status: ev.status ?? t.status,
+                      agent_id: ev.agent_id !== undefined ? ev.agent_id : t.agent_id,
+                    }
+                  : t
+              )
+            );
+          } else if (ev.type === "new_message") {
+            setTickets((prev) =>
+              prev.map((t) =>
+                t.id === ev.ticket_id
+                  ? { ...t, unread_count: (t.unread_count ?? 0) + 1 }
+                  : t
+              )
+            );
+          }
+        },
+        () => {
+          if (!unmounted) timer = setTimeout(connect, 3000);
+        }
+      );
+    }
+
+    connect();
+
+    return () => {
+      unmounted = true;
+      if (timer) clearTimeout(timer);
+      ws?.close();
+    };
+  }, [user, activeStatus, searchTerm, page]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   // Debounce search input
   useEffect(() => {
@@ -139,7 +215,21 @@ export default function TicketsPage({
   const isAdmin = user?.role === "admin";
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 pb-20 relative">
+      {/* Real-time Business Toast */}
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2.5 bg-gray-900 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-2xl border border-gray-700 animate-in fade-in slide-in-from-top-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span>{toast}</span>
+          <button
+            onClick={() => setToast(null)}
+            className="ml-2 text-gray-400 hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Navbar */}
       <Navbar user={user ?? null} onLogout={logout}>
         {isAdmin && (

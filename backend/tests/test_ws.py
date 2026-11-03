@@ -122,3 +122,37 @@ async def test_ws_typing_indicator(client: AsyncClient):
             assert ev["type"] == "typing"
             assert ev["is_typing"] is True
             assert ev["user_id"] == cust["id"]
+
+
+@pytest.mark.asyncio
+async def test_ws_business_notifications_and_isolation(client: AsyncClient):
+    tok_a = await _register(client, "WSNotifA", "wsnotif-admin-a@biz.com")
+    tok_b = await _register(client, "WSNotifB", "wsnotif-admin-b@biz.com")
+
+    cust_a = await _create_user(client, tok_a["access_token"], "wsnotif-cust-a@biz.com", "customer")
+    cust_a_token = (await _login(client, "wsnotif-cust-a@biz.com"))["access_token"]
+
+    cust_b = await _create_user(client, tok_b["access_token"], "wsnotif-cust-b@biz.com", "customer")
+    cust_b_token = (await _login(client, "wsnotif-cust-b@biz.com"))["access_token"]
+
+    tc = TestClient(app)
+
+    # 1. Invalid token rejects with 1008
+    with pytest.raises(WebSocketDisconnect) as exc:
+        with tc.websocket_connect("/ws/business?token=invalidtoken"):
+            pass
+    assert exc.value.code == 1008
+
+    # 2. Admin A connects to Biz A notification stream
+    with tc.websocket_connect(f"/ws/business?token={tok_a['access_token']}") as ws_admin_a:
+        # Cust B creates ticket in Biz B
+        await _create_ticket(client, cust_b_token, "Biz B ticket")
+
+        # Cust A creates ticket in Biz A
+        t_a = await _create_ticket(client, cust_a_token, "Biz A ticket")
+
+        # Admin A receives event for Biz A ticket ONLY
+        event = ws_admin_a.receive_json()
+        assert event["type"] == "ticket_created"
+        assert event["ticket_id"] == t_a["id"]
+        assert event["subject"] == "Biz A ticket"

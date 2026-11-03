@@ -19,3 +19,21 @@ export function createTicketSocket(
   if (onClose) ws.onclose = onClose;
   return ws;
 }
+
+export function createBusinessSocket(
+  onMessage: (data: unknown) => void,
+  onClose?: () => void
+): WebSocket | null {
+  const token = getAccessToken();
+  if (!token) return null;
+  const ws = new WebSocket(`${WS_BASE}/ws/business?token=${token}`);
+  ws.onmessage = (e) => {
+    try {
+      onMessage(JSON.parse(e.data));
+    } catch {
+      // ignore
+    }
+  };
+  if (onClose) ws.onclose = onClose;
+  return ws;
+}

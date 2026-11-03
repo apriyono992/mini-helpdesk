@@ -13,7 +13,14 @@ router = APIRouter(prefix="/tickets", tags=["tickets"])
 
 @router.post("", response_model=TicketOut, status_code=201)
 async def create_ticket(data: TicketCreate, user: CurrentUser, session: AsyncSessionDep):
-    return await ticket_service.create_ticket(data, user, session)
+    ticket = await ticket_service.create_ticket(data, user, session)
+    await manager.broadcast_business(user.business_id, {
+        "type": "ticket_created",
+        "ticket_id": ticket.id,
+        "subject": ticket.subject,
+        "customer_id": ticket.customer_id,
+    })
+    return ticket
 
 
 @router.get("", response_model=TicketPaginationOut)
@@ -49,6 +56,12 @@ async def mark_ticket_read(ticket_id: int, user: CurrentUser, session: AsyncSess
 async def patch_ticket(ticket_id: int, data: TicketPatch, user: CurrentUser, session: AsyncSessionDep):
     ticket = await ticket_service.patch_ticket(ticket_id, data, user, session)
     await manager.broadcast(ticket_id, {
+        "type": "ticket_update",
+        "id": ticket.id,
+        "status": ticket.status,
+        "agent_id": ticket.agent_id,
+    })
+    await manager.broadcast_business(user.business_id, {
         "type": "ticket_update",
         "id": ticket.id,
         "status": ticket.status,

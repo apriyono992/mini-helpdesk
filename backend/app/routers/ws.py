@@ -99,5 +99,40 @@ async def ticket_ws(ticket_id: int, websocket: WebSocket, token: str = ""):
                 "attachment_url": attachment_url,
                 "created_at": msg.created_at.isoformat(),
             })
+            await manager.broadcast_business(user.business_id, {
+                "type": "new_message",
+                "ticket_id": ticket_id,
+                "sender_id": user_id,
+            })
     except (WebSocketDisconnect, Exception):
         manager.disconnect(ticket_id, websocket)
+
+
+@router.websocket("/ws/business")
+async def business_ws(websocket: WebSocket, token: str = ""):
+    """Validate token BEFORE accept(). Reject with 1008."""
+    async with AsyncSessionLocal() as session:
+        try:
+            payload = decode_token(token)
+        except (jwt.ExpiredSignatureError, jwt.PyJWTError):
+            await websocket.close(code=1008)
+            return
+
+        if payload.get("type") != "access":
+            await websocket.close(code=1008)
+            return
+
+        user_id = int(payload["sub"])
+        user_result = await session.execute(select(User).where(User.id == user_id))
+        user = user_result.scalar_one_or_none()
+        if user is None:
+            await websocket.close(code=1008)
+            return
+
+    business_id = user.business_id
+    await manager.connect_business(business_id, websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except (WebSocketDisconnect, Exception):
+        manager.disconnect_business(business_id, websocket)
