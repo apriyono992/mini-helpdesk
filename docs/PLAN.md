@@ -75,7 +75,7 @@ Kunci desain sejak awal:
 
 **Hari 2**
 - [ ] 3. User management: `GET/POST /users` (Admin; buat Agent/Customer)
-- [ ] 4. Tiket backend: `POST /tickets` (+ pesan pertama), `GET /tickets?status=`, `GET /tickets/{id}`, `PATCH /tickets/{id}` (assign, status, reopen)
+- [x] 4. Tiket backend: `POST /tickets` (+ pesan pertama), `GET /tickets?status=`, `GET /tickets/{id}`, `PATCH /tickets/{id}` (assign, status, reopen)
 - [ ] 5. `GET /tickets/{id}/messages` + format error JSON 401/403/404/422
 - [ ] 6. Tes isolasi (pytest): bisnis A tebak ID tiket B -> 404; customer lain -> 404
 

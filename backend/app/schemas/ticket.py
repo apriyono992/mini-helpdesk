@@ -1,10 +1,12 @@
 from datetime import datetime
 from pydantic import BaseModel
-from app.models.ticket import TicketStatus
+from app.models.ticket import TicketPriority, TicketStatus
 
 
 class TicketCreate(BaseModel):
     subject: str
+    category: str = "general"
+    priority: TicketPriority = TicketPriority.medium
     first_message: str
 
 
@@ -19,6 +21,8 @@ class TicketOut(BaseModel):
     customer_id: int
     agent_id: int | None
     subject: str
+    category: str
+    priority: TicketPriority
     status: TicketStatus
     created_at: datetime
     updated_at: datetime

@@ -14,6 +14,12 @@ class TicketStatus(str, enum.Enum):
     closed = "closed"
 
 
+class TicketPriority(str, enum.Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+
+
 class Ticket(Base):
     __tablename__ = "tickets"
     __table_args__ = (Index("ix_ticket_business_status", "business_id", "status"),)
@@ -23,6 +29,8 @@ class Ticket(Base):
     customer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     agent_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     subject: Mapped[str] = mapped_column(String(500), nullable=False)
+    category: Mapped[str] = mapped_column(String(100), nullable=False, default="general")
+    priority: Mapped[TicketPriority] = mapped_column(Enum(TicketPriority), nullable=False, default=TicketPriority.medium)
     status: Mapped[TicketStatus] = mapped_column(Enum(TicketStatus), default=TicketStatus.open, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

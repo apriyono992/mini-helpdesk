@@ -28,6 +28,8 @@ async def create_ticket(data: TicketCreate, user: User, session: AsyncSession) -
         business_id=user.business_id,
         customer_id=user.id,
         subject=data.subject,
+        category=data.category,
+        priority=data.priority,
         status=TicketStatus.open,
     )
     session.add(ticket)
@@ -46,7 +48,7 @@ async def list_tickets(user: User, session: AsyncSession, status_filter: TicketS
         query = query.where(Ticket.customer_id == user.id)
     if status_filter:
         query = query.where(Ticket.status == status_filter)
-    result = await session.execute(query.order_by(Ticket.created_at.desc()))
+    result = await session.execute(query.order_by(Ticket.updated_at.desc()))
     return [TicketOut.model_validate(t) for t in result.scalars().all()]
 
 
@@ -72,6 +74,10 @@ def _validate_status_transition(current: TicketStatus, next_status: TicketStatus
     if current == TicketStatus.resolved and next_status == TicketStatus.open:
         if user.role != UserRole.customer:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only customer can reopen ticket")
+    # open -> in_progress only by agent/admin
+    if current == TicketStatus.open and next_status == TicketStatus.in_progress:
+        if user.role == UserRole.customer:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only agent or admin can start progress")
 
 
 async def patch_ticket(ticket_id: int, data: TicketPatch, user: User, session: AsyncSession) -> TicketOut:
@@ -86,11 +92,19 @@ async def patch_ticket(ticket_id: int, data: TicketPatch, user: User, session: A
         ticket.status = data.status
 
     if data.agent_id is not None:
-        if user.role not in (UserRole.admin, UserRole.agent):
+        if user.role == UserRole.customer:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
-        # Verify agent belongs to same business
+        if user.role == UserRole.agent:
+            # agent hanya boleh self-assign
+            if data.agent_id != user.id:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Agent can only self-assign")
+        # Verify target is an agent in same business
         agent_result = await session.execute(
-            select(User).where(User.id == data.agent_id, User.business_id == user.business_id)
+            select(User).where(
+                User.id == data.agent_id,
+                User.business_id == user.business_id,
+                User.role == UserRole.agent,
+            )
         )
         if agent_result.scalar_one_or_none() is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")

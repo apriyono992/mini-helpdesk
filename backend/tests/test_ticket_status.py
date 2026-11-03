@@ -12,19 +12,37 @@ async def setup(client):
     tokens_admin = await _register(client, "StatusBiz", "status-admin@biz.com")
     admin_token = tokens_admin["access_token"]
 
-    await _create_user(client, admin_token, "status-agent@biz.com", "agent")
+    agent_data = await _create_user(client, admin_token, "status-agent@biz.com", "agent")
     await _create_user(client, admin_token, "status-cust@biz.com", "customer")
 
     tokens_agent = await _login(client, "status-agent@biz.com")
     tokens_cust = await _login(client, "status-cust@biz.com")
 
     ticket = await _create_ticket(client, tokens_cust["access_token"], "Status test ticket")
+
+    # get admin user id via /auth/me
+    r_admin = await client.get("/auth/me", headers={"Authorization": f"Bearer {admin_token}"})
+    admin_user_id = r_admin.json()["id"]
+
     return {
         "admin_token": admin_token,
         "agent_token": tokens_agent["access_token"],
         "cust_token": tokens_cust["access_token"],
         "ticket_id": ticket["id"],
+        "agent_user_id": agent_data["id"],
+        "admin_user_id": admin_user_id,
     }
+
+
+@pytest.mark.asyncio
+async def test_customer_cannot_start_progress(client: AsyncClient, setup):
+    # ticket is back to open after reopen; customer must not be able to move to in_progress
+    r = await client.patch(
+        f"/tickets/{setup['ticket_id']}",
+        json={"status": "in_progress"},
+        headers={"Authorization": f"Bearer {setup['cust_token']}"},
+    )
+    assert r.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -80,3 +98,49 @@ async def test_customer_can_reopen(client: AsyncClient, setup):
     )
     assert r.status_code == 200
     assert r.json()["status"] == "open"
+
+
+@pytest.mark.asyncio
+async def test_agent_self_assign(client: AsyncClient, setup):
+    r = await client.patch(
+        f"/tickets/{setup['ticket_id']}",
+        json={"agent_id": setup["agent_user_id"]},
+        headers={"Authorization": f"Bearer {setup['agent_token']}"},
+    )
+    assert r.status_code == 200
+    assert r.json()["agent_id"] == setup["agent_user_id"]
+
+
+@pytest.mark.asyncio
+async def test_agent_cannot_assign_other(client: AsyncClient, setup):
+    # agent tries to assign to admin (not an agent role) or another user
+    r = await client.patch(
+        f"/tickets/{setup['ticket_id']}",
+        json={"agent_id": setup["admin_user_id"]},
+        headers={"Authorization": f"Bearer {setup['agent_token']}"},
+    )
+    assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_admin_assign_to_agent(client: AsyncClient, setup):
+    r = await client.patch(
+        f"/tickets/{setup['ticket_id']}",
+        json={"agent_id": setup["agent_user_id"]},
+        headers={"Authorization": f"Bearer {setup['admin_token']}"},
+    )
+    assert r.status_code == 200
+    assert r.json()["agent_id"] == setup["agent_user_id"]
+
+
+@pytest.mark.asyncio
+async def test_ticket_has_category_and_priority(client: AsyncClient, setup):
+    r = await client.post(
+        "/tickets",
+        json={"subject": "Cat/Pri test", "category": "billing", "priority": "high", "first_message": "Hi"},
+        headers={"Authorization": f"Bearer {setup['cust_token']}"},
+    )
+    assert r.status_code == 201
+    data = r.json()
+    assert data["category"] == "billing"
+    assert data["priority"] == "high"
