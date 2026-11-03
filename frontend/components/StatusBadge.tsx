@@ -1,10 +1,10 @@
 import type { TicketStatus } from "@/lib/types";
 
 const MAP: Record<TicketStatus, string> = {
-  open: "bg-blue-100 text-blue-800",
-  in_progress: "bg-yellow-100 text-yellow-800",
-  resolved: "bg-green-100 text-green-800",
-  closed: "bg-gray-100 text-gray-600",
+  open: "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
+  in_progress: "bg-amber-50 text-amber-700 ring-1 ring-amber-100",
+  resolved: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  closed: "bg-gray-100 text-gray-500 ring-1 ring-gray-200",
 };
 
 const LABEL: Record<TicketStatus, string> = {
@@ -16,7 +16,7 @@ const LABEL: Record<TicketStatus, string> = {
 
 export function StatusBadge({ status }: { status: TicketStatus }) {
   return (
-    <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${MAP[status]}`}>
+    <span className={`inline-block shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${MAP[status]}`}>
       {LABEL[status]}
     </span>
   );

@@ -7,8 +7,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { TicketList } from "@/components/TicketList";
 import type { Ticket, TicketStatus } from "@/lib/types";
 
-
 const STATUSES: TicketStatus[] = ["open", "in_progress", "resolved", "closed"];
+const STATUS_LABEL: Record<TicketStatus, string> = {
+  open: "Open",
+  in_progress: "In Progress",
+  resolved: "Resolved",
+  closed: "Closed",
+};
 
 // searchParams is a Promise in this version
 export default function TicketsPage({
@@ -41,59 +46,81 @@ export default function TicketsPage({
       .finally(() => setLoading(false));
   }, [authLoading, user, activeStatus, router]);
 
-  if (authLoading) return <div className="flex min-h-screen items-center justify-center">Loading…</div>;
+  if (authLoading)
+    return <div className="flex min-h-screen items-center justify-center text-gray-400">Loading…</div>;
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Tickets</h1>
-        <div className="flex gap-2 items-center">
-          {user?.role === "admin" && (
-            <Link href="/admin/users" className="text-sm text-blue-600 hover:underline">
-              Users
-            </Link>
-          )}
-          {user?.role === "customer" && (
-            <Link
-              href="/tickets/new"
-              className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+    <div className="min-h-screen bg-gray-50">
+      {/* Navbar */}
+      <header className="sticky top-0 z-10 bg-white border-b border-gray-200">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 flex items-center justify-between h-14">
+          <span className="font-semibold text-gray-900 tracking-tight">HelpDesk</span>
+          <div className="flex items-center gap-4">
+            {user?.role === "admin" && (
+              <Link href="/admin/users" className="text-sm text-gray-600 hover:text-gray-900">
+                Users
+              </Link>
+            )}
+            {user?.role === "customer" && (
+              <Link
+                href="/tickets/new"
+                className="rounded-lg bg-indigo-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+              >
+                New ticket
+              </Link>
+            )}
+            <button
+              onClick={logout}
+              className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
             >
-              New Ticket
-            </Link>
-          )}
-          <button onClick={logout} className="text-sm text-gray-500 hover:underline">
-            Logout
-          </button>
+              Logout
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* Status filter tabs */}
-      <div className="flex gap-1 flex-wrap">
-        <Link
-          href="/tickets"
-          className={`rounded px-3 py-1 text-sm ${!activeStatus ? "bg-blue-600 text-white" : "bg-white border hover:bg-gray-50"}`}
-        >
-          All
-        </Link>
-        {STATUSES.map((s) => (
+      <main className="mx-auto max-w-3xl px-4 sm:px-6 py-6 space-y-4">
+        {/* Filter tabs */}
+        <div className="flex gap-1 flex-wrap">
           <Link
-            key={s}
-            href={`/tickets?status=${s}`}
-            className={`rounded px-3 py-1 text-sm ${activeStatus === s ? "bg-blue-600 text-white" : "bg-white border hover:bg-gray-50"}`}
+            href="/tickets"
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              !activeStatus
+                ? "bg-indigo-600 text-white"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            }`}
           >
-            {s.replace("_", " ")}
+            All
           </Link>
-        ))}
-      </div>
-
-      {error && <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      {loading ? (
-        <p className="text-center text-gray-500 py-8">Loading tickets…</p>
-      ) : (
-        <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-          <TicketList tickets={tickets} />
+          {STATUSES.map((s) => (
+            <Link
+              key={s}
+              href={`/tickets?status=${s}`}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                activeStatus === s
+                  ? "bg-indigo-600 text-white"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              }`}
+            >
+              {STATUS_LABEL[s]}
+            </Link>
+          ))}
         </div>
-      )}
+
+        {error && (
+          <p className="rounded-lg bg-red-50 border border-red-100 px-4 py-2.5 text-sm text-red-600">
+            {error}
+          </p>
+        )}
+
+        {loading ? (
+          <p className="text-center text-gray-400 py-16 text-sm">Loading tickets…</p>
+        ) : (
+          <div className="rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+            <TicketList tickets={tickets} />
+          </div>
+        )}
+      </main>
     </div>
   );
 }

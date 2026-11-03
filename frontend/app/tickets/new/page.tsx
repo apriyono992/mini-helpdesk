@@ -32,49 +32,71 @@ export default function NewTicketPage() {
     }
   }
 
-  if (authLoading) return <div className="flex min-h-screen items-center justify-center">Loading…</div>;
+  if (authLoading)
+    return <div className="flex min-h-screen items-center justify-center text-gray-400">Loading…</div>;
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-6 space-y-4">
-      <h1 className="text-xl font-bold">New Ticket</h1>
-      <form onSubmit={submit} className="bg-white rounded-lg border p-6 shadow-sm space-y-4">
-        {error && <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-        <div>
-          <label className="block text-sm font-medium mb-1">Subject</label>
-          <input
-            required
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            className="w-full rounded border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Message</label>
-          <textarea
-            required
-            rows={4}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            className="w-full rounded border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div className="flex gap-3">
+    <div className="min-h-screen bg-gray-50">
+      <header className="sticky top-0 z-10 bg-white border-b border-gray-200">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 flex items-center h-14">
           <button
-            type="button"
             onClick={() => router.back()}
-            className="flex-1 rounded border px-3 py-2 text-sm hover:bg-gray-50"
+            className="text-sm text-gray-500 hover:text-gray-900 transition-colors mr-4"
           >
-            Cancel
+            ← Back
           </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex-1 rounded bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? "Submitting…" : "Submit"}
-          </button>
+          <span className="font-semibold text-gray-900">New ticket</span>
         </div>
-      </form>
+      </header>
+
+      <main className="mx-auto max-w-lg px-4 sm:px-6 py-8">
+        <div className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm">
+          {error && (
+            <p className="mb-4 rounded-lg bg-red-50 border border-red-100 px-4 py-2.5 text-sm text-red-600">
+              {error}
+            </p>
+          )}
+          <form onSubmit={submit} className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Subject</label>
+              <input
+                required
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Brief description of your issue"
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Message</label>
+              <textarea
+                required
+                rows={5}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Describe your issue in detail…"
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+              />
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                {loading ? "Submitting…" : "Submit ticket"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </main>
     </div>
   );
 }
