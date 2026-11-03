@@ -1,56 +1,130 @@
 # HelpDesk Mini
 
-Multi-tenant ticketing app. Backend FastAPI + Frontend Next.js App Router.
+Aplikasi helpdesk ticketing multi-tenant. Backend dibangun menggunakan FastAPI (Python 3.11+) dan PostgreSQL, frontend menggunakan Next.js (App Router) + TypeScript + Tailwind CSS.
 
-## Quick Start
+Setiap user terikat ke satu bisnis dan satu peran (`admin`, `agent`, `customer`).
 
-### Satu Perintah via Docker Compose
+---
 
-Jalankan seluruh stack (Postgres + auto migration & seed + Backend + Frontend):
+## Prasyarat Sistem
+
+- **Python**: 3.11 atau lebih baru
+- **Node.js**: 18.x atau lebih baru (disertai `npm`)
+- **PostgreSQL**: 15+ (atau Docker)
+- **Docker & Docker Compose** (opsional untuk menjalankan stack secara kontainer)
+
+---
+
+## Cara Menjalankan dari Nol
+
+### Opsi A: Menggunakan Docker Compose (Satu Perintah)
+
+Semua dependensi (PostgreSQL, migrasi Alembic, seed data, FastAPI backend, dan Next.js frontend) berjalan otomatis:
 
 ```bash
 docker compose up --build
 ```
 
-- Frontend: http://localhost:3000
-- Backend & Swagger: http://localhost:8000 / http://localhost:8000/docs
+Layanan siap diakses pada:
+- **Frontend**: [http://localhost:3000](http://localhost:3000)
+- **Backend API**: [http://localhost:8000](http://localhost:8000)
+- **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
 
 ---
 
-### Manual Setup
+### Opsi B: Setup Manual (Host Dev)
 
-#### 1. Environment Configuration
+#### 1. Konfigurasi Environment Variable
 
-Cukup buat 1 file `.env` di root direktori project:
+Salin template konfigurasi di root direktori project:
 
 ```bash
 cp .env.example .env
 ```
 
-#### 2. Backend
+Pastikan variabel `DATABASE_URL` mengarah ke instance PostgreSQL lokal Anda.
+
+#### 2. Siapkan Database PostgreSQL
+
+Jika menggunakan PostgreSQL via Docker:
+```bash
+docker run --name mini-helpdesk-db \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgrespassword \
+  -e POSTGRES_DB=mini_helpdesk \
+  -p 5432:5432 \
+  -d postgres:16-alpine
+```
+
+#### 3. Setup & Jalankan Backend
 
 ```bash
 cd backend
+
+# Buat dan aktifkan virtual environment
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
+
+# Install dependensi
 pip install -r requirements.txt
+
+# Jalankan migrasi database
 alembic upgrade head
-uvicorn app.main:app --reload
+
+# Masukkan seed demo data (2 bisnis × 4 user)
+python scripts/seed.py
+
+# Jalankan development server
+uvicorn app.main:app --reload --port 8000
 ```
 
-Backend runs at http://localhost:8000 — Swagger UI at http://localhost:8000/docs
+Backend aktif di `http://localhost:8000`.
 
-#### 3. Frontend
+#### 4. Setup & Jalankan Frontend
+
+Di terminal baru:
 
 ```bash
 cd frontend
+
+# Install dependencies
 npm install
+
+# Jalankan Next.js development server
 npm run dev
 ```
 
-Frontend runs at http://localhost:3000
+Frontend aktif di `http://localhost:3000`.
 
-#### 4. Seed demo data (optional)
+---
+
+## Environment Variables (`.env` & `.env.example`)
+
+File `.env.example` disediakan di root repositori sebagai template tanpa secret asli. Jangan commit file `.env` ke version control.
+
+| Variabel | Deskripsi | Default / Nilai Dummy |
+|---|---|---|
+| `POSTGRES_USER` | Username database PostgreSQL | `postgres` |
+| `POSTGRES_PASSWORD` | Password database PostgreSQL | `postgrespassword` |
+| `POSTGRES_DB` | Nama database PostgreSQL | `mini_helpdesk` |
+| `POSTGRES_PORT` | Port PostgreSQL pada host | `5432` |
+| `DATABASE_URL` | Koneksi database SQLAlchemy async | `postgresql+psycopg://postgres:postgrespassword@localhost:5432/mini_helpdesk` |
+| `SECRET_KEY` | Secret key penandatanganan JWT (min 32 char) | `change-me-super-secret-jwt-key-min-32-chars` |
+| `ALGORITHM` | Algoritma enkripsi JWT | `HS256` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Masa berlaku access token (menit) | `30` |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | Masa berlaku refresh token (hari) | `7` |
+| `CORS_ORIGINS` | Domain asal yang diizinkan untuk CORS | `http://localhost:3000` |
+| `BACKEND_PORT` | Port service backend | `8000` |
+| `PORT` | Port service frontend | `3000` |
+| `NEXT_PUBLIC_API_URL` | Base URL API backend untuk browser | `http://localhost:8000` |
+| `NEXT_PUBLIC_WS_URL` | Base URL WebSocket untuk browser | `ws://localhost:8000` |
+
+---
+
+## Seed Data & Akun Demo
+
+Jalankan script seed data:
 
 ```bash
 cd backend
@@ -58,43 +132,46 @@ source .venv/bin/activate
 python scripts/seed.py
 ```
 
-## Environment Variables (`.env`)
+Script bersifat **idempotent** (aman dijalankan berulang tanpa duplikasi data). Script membuat 2 bisnis terisolasi beserta kategori dan 4 akun per bisnis:
 
-| Variable | Description | Default / Example |
-|---|---|---|
-| `POSTGRES_USER` | PostgreSQL user | `postgres` |
-| `POSTGRES_PASSWORD` | PostgreSQL password | `postgrespassword` |
-| `POSTGRES_DB` | PostgreSQL database name | `mini_helpdesk` |
-| `POSTGRES_PORT` | PostgreSQL port | `5432` |
-| `DATABASE_URL` | PostgreSQL connection URL (host dev) | `postgresql+psycopg://postgres:pass@localhost:5432/mini_helpdesk` |
-| `SECRET_KEY` | JWT signing secret (32+ chars) | `change-me-super-secret-jwt-key` |
-| `ALGORITHM` | JWT algorithm | `HS256` |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token TTL | `30` |
-| `REFRESH_TOKEN_EXPIRE_DAYS` | Refresh token TTL | `7` |
-| `CORS_ORIGINS` | Allowed CORS origins | `http://localhost:3000` |
-| `PORT` | Frontend dev/runtime port | `3000` |
-| `NEXT_PUBLIC_API_URL` | Frontend API URL | `http://localhost:8000` |
-| `NEXT_PUBLIC_WS_URL` | Frontend WebSocket URL | `ws://localhost:8000` |
+### 1. Acme Corp
 
-## Demo Accounts (after seed)
+| Role | Nama Lengkap | Email | Password |
+|---|---|---|---|
+| **Admin** | Acme Admin | `admin@acme.com` | `admin1234` |
+| **Agent** | Acme Agent | `agent@acme.com` | `agent1234` |
+| **Customer 1** | Acme Customer 1 | `cust1@acme.com` | `cust1234` |
+| **Customer 2** | Acme Customer 2 | `cust2@acme.com` | `cust1234` |
 
-### Acme Corp
-| Role | Email | Password |
-|---|---|---|
-| Admin | admin@acme.com | admin1234 |
-| Agent | agent@acme.com | agent1234 |
-| Customer | cust1@acme.com | cust1234 |
-| Customer | cust2@acme.com | cust1234 |
+### 2. Globex Inc
 
-### Globex Inc
-| Role | Email | Password |
-|---|---|---|
-| Admin | admin@globex.com | admin1234 |
-| Agent | agent@globex.com | agent1234 |
-| Customer | cust1@globex.com | cust1234 |
-| Customer | cust2@globex.com | cust1234 |
+| Role | Nama Lengkap | Email | Password |
+|---|---|---|---|
+| **Admin** | Globex Admin | `admin@globex.com` | `admin1234` |
+| **Agent** | Globex Agent | `agent@globex.com` | `agent1234` |
+| **Customer 1** | Globex Customer 1 | `cust1@globex.com` | `cust1234` |
+| **Customer 2** | Globex Customer 2 | `cust2@globex.com` | `cust1234` |
 
-## Running Tests
+---
+
+## Dokumentasi API & Swagger
+
+FastAPI secara otomatis menghasilkan dokumentasi interaktif OpenAPI:
+- **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+- **OpenAPI Schema (JSON)**: [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json)
+
+Untuk mencoba request endpoint terproteksi di Swagger:
+1. Panggil `POST /auth/login` menggunakan akun demo.
+2. Salin nilai `access_token`.
+3. Klik tombol **Authorize** (ikon gembok) di pojok kanan atas Swagger UI.
+4. Tempelkan token (tanpa prefix `Bearer `) lalu klik **Authorize**.
+
+---
+
+## Menjalankan Pengujian (Testing)
+
+### Backend
 
 ```bash
 cd backend
@@ -102,53 +179,69 @@ source .venv/bin/activate
 pytest tests/ -v
 ```
 
-13 tests covering: auth, tenant isolation, status machine.
+Total **35 tes** mencakup:
+- `test_auth.py`: registrasi bisnis, login (dengan rate limiting), refresh token, endpoint `/me`.
+- `test_categories.py`: CRUD kategori tenant dan proteksi role admin.
+- `test_isolation.py`: isolasi data antar-tenant, proteksi akses silang tiket/pesan (return 404), filter unassigned agent.
+- `test_ticket_status.py`: mesin status tiket (`open` → `in_progress` → `resolved` → `closed`), aturan transisi, dan proteksi reopen.
+- `test_ws.py`: koneksi WebSocket, validasi token sebelum handshake (close code 1008), broadcast pesan & read receipt.
+- `test_openapi.py`: integritas skema OpenAPI `/openapi.json` dan ketersediaan `/docs`.
 
-## Architecture
+### Frontend
 
-```
-backend/
-  app/
-    core/        # config, security (JWT/argon2), deps (get_current_user)
-    db/          # SQLAlchemy async session, Base
-    models/      # Business, User, Ticket, Message
-    schemas/     # Pydantic input/output (no password fields in output)
-    routers/     # HTTP + WebSocket endpoints (no business logic here)
-    services/    # All business logic + tenant filtering
-  alembic/       # DB migrations
-  scripts/       # seed.py
-  tests/
-
-frontend/
-  app/           # Next.js App Router pages
-  components/    # TicketList, ChatPanel, TicketInfoPanel, StatusBadge
-  hooks/         # useAuth, useTicketSocket
-  lib/           # api.ts (all fetches), auth.ts, ws.ts, types.ts
+```bash
+cd frontend
+npm run lint && npm run build
 ```
 
-## Ticket Status Machine
+---
+
+## Struktur Proyek
 
 ```
-open → in_progress → resolved → closed
-resolved → open   (customer owner only)
-closed → *        (no exit)
+.
+├── .env.example              # Template konfigurasi environment root
+├── docker-compose.yml        # Orkestrasi container Postgres, backend, frontend, migrasi
+├── backend/
+│   ├── alembic/              # Skrip migrasi database
+│   ├── app/
+│   │   ├── core/             # Konfigurasi, security (argon2/JWT), rate limiter, dependencies
+│   │   ├── db/               # SQLAlchemy async session
+│   │   ├── models/           # ORM SQLAlchemy (Business, User, Ticket, Message, Category)
+│   │   ├── schemas/          # Schema validasi Pydantic (input/output/error)
+│   │   ├── routers/          # Endpoint API (HTTP & WebSocket)
+│   │   └── services/         # Business logic, filter tenant, ticket state machine
+│   ├── scripts/
+│   │   └── seed.py           # Script data demo (2 bisnis × 4 user)
+│   └── tests/                # Automated pytest suite
+└── frontend/
+    ├── app/                  # Next.js App Router (pages: auth, tickets, admin)
+    ├── components/           # Komponen UI (TicketList, ChatPanel, InfoPanel, dsb.)
+    ├── hooks/                # Custom React hooks (useAuth, useTicketSocket)
+    └── lib/                  # Client API (api.ts), types (types.ts), auth store, websocket
 ```
 
-Enforced in one place: `backend/app/services/ticket_service.py`.
+---
 
-## Security
+## Mesin Status Tiket
 
-- Passwords hashed with argon2. Never in any response.
-- All ticket/message queries filter by `business_id` from token (never from request body).
-- Cross-business access → 404 (not 403, not the data).
-- WebSocket validates token + ticket access **before** `accept()`. Rejects with close code 1008.
-- `.env` files are gitignored. See `.env.example` for required vars.
+```
+open ────► in_progress ────► resolved ────► closed
+  ▲                              │
+  └──────────────────────────────┘
+     (hanya customer pemilik)
+```
 
-## Notes & Decisions
+Aturan:
+1. `closed` bersifat terminal: tidak ada transisi keluar dan menolak pesan baru.
+2. Hanya customer pemilik tiket yang boleh mengembalikan status dari `resolved` ke `open`.
+3. Logika status machine terpusat secara eksklusif di `backend/app/services/ticket_service.py`.
 
-- **SQLite not used**: PostgreSQL required for production correctness (async driver `psycopg`).
-- **No refresh token rotation**: Single refresh token per login. Add rotation when adding token revocation store.
-- **No pagination**: Ticket list returns all. Add `?page=&limit=` with offset query when ticket count grows.
-- **WebSocket token via query param**: Standard approach for browser WS (headers not supported). Token is short-lived (30 min).
-- **Frontend auth is client-side only**: No server-side session. Redirect on 401 handled in `api.ts`.
-- **`cacheComponents: false`** in `next.config.ts`: All pages are client-auth-gated; Cache Components (Next.js 16 default) requires server-side data patterns incompatible with client-only auth flow.
+---
+
+## Standar Keamanan
+
+1. **Hash Password**: Disimpan menggunakan algoritma `argon2-cffi`. Tidak pernah disertakan pada output skema maupun log.
+2. **Isolasi Tenant Ketat**: Setiap query database tiket/pesan/kategori wajib memfilter `business_id` dari token sesi yang tervalidasi.
+3. **Response 404 untuk Akses Tak Berhak**: Mencoba mengakses tiket milik customer lain atau bisnis lain menghasilkan kode status `404 Not Found` (mencegah information disclosure).
+4. **WebSocket Pre-Handshake Auth**: Verifikasi JWT dan hak akses tiket dilakukan **sebelum** koneksi di-accept. Penolakan menghasilkan close code `1008 Policy Violation`.
