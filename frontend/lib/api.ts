@@ -17,11 +17,14 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
     signal: AbortSignal.timeout(10_000),
   });
 
-  if (res.status === 401 && retry) {
+  const isAuthEndpoint = path.startsWith("/auth/login") || path.startsWith("/auth/register");
+  if (res.status === 401 && retry && !isAuthEndpoint) {
     const refreshed = await tryRefresh();
     if (refreshed) return request<T>(path, init, false);
     clearTokens();
-    window.location.href = "/login";
+    if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+      window.location.href = "/login";
+    }
     throw new Error("Unauthorized");
   }
 
