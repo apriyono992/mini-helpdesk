@@ -33,7 +33,7 @@ export function Navbar({ user, onLogout, children }: Props) {
           {children}
 
           {user && (
-            <div className="relative group">
+            <div className="relative group pb-2">
               {/* Avatar */}
               <button
                 type="button"
@@ -43,8 +43,9 @@ export function Navbar({ user, onLogout, children }: Props) {
                 {initials}
               </button>
 
-              {/* Dropdown */}
-              <div className="absolute right-0 top-full mt-2 w-52 rounded-xl bg-white border border-gray-200 shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-opacity duration-150">
+              {/* Dropdown — pt-2 closes the gap so hover doesn't break */}
+              <div className="absolute right-0 top-full -mt-2 pt-2 w-52 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-opacity duration-150">
+              <div className="rounded-xl bg-white border border-gray-200 shadow-lg">
                 {/* Profile info */}
                 <div className="px-4 py-3 border-b border-gray-100">
                   <p className="text-sm font-semibold text-gray-900 truncate">{user.full_name}</p>
@@ -65,6 +66,7 @@ export function Navbar({ user, onLogout, children }: Props) {
                     </button>
                   </div>
                 )}
+              </div>
               </div>
             </div>
           )}
