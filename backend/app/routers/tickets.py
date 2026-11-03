@@ -6,6 +6,7 @@ from app.models.ticket import TicketStatus
 from app.schemas.ticket import TicketCreate, TicketOut, TicketPatch
 from app.schemas.message import MessageOut
 from app.services import ticket_service
+from app.services.chat_manager import manager
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
 
@@ -31,7 +32,14 @@ async def get_ticket(ticket_id: int, user: CurrentUser, session: AsyncSessionDep
 
 @router.patch("/{ticket_id}", response_model=TicketOut)
 async def patch_ticket(ticket_id: int, data: TicketPatch, user: CurrentUser, session: AsyncSessionDep):
-    return await ticket_service.patch_ticket(ticket_id, data, user, session)
+    ticket = await ticket_service.patch_ticket(ticket_id, data, user, session)
+    await manager.broadcast(ticket_id, {
+        "type": "ticket_update",
+        "id": ticket.id,
+        "status": ticket.status,
+        "agent_id": ticket.agent_id,
+    })
+    return ticket
 
 
 @router.get("/{ticket_id}/messages", response_model=list[MessageOut])
