@@ -82,14 +82,14 @@ async def _calculate_unread_counts(ticket_ids: list[int], user_id: int, session:
     return unreads
 
 
-async def mark_ticket_read(ticket_id: int, user: User, session: AsyncSession) -> None:
+async def mark_ticket_read(ticket_id: int, user: User, session: AsyncSession) -> int | None:
     await _get_ticket_for_user(ticket_id, user, session)
     latest_msg = await session.execute(
         select(func.max(Message.id)).where(Message.ticket_id == ticket_id)
     )
     max_id = latest_msg.scalar_one_or_none()
     if not max_id:
-        return
+        return None
 
     existing = await session.execute(
         select(TicketRead).where(TicketRead.ticket_id == ticket_id, TicketRead.user_id == user.id)
@@ -105,6 +105,7 @@ async def mark_ticket_read(ticket_id: int, user: User, session: AsyncSession) ->
         )
         session.add(read_rec)
     await session.commit()
+    return max_id
 
 
 async def list_tickets(
@@ -229,13 +230,32 @@ async def list_messages(
     before_id: int | None = None,
 ) -> list[MessageOut]:
     await _get_ticket_for_user(ticket_id, user, session)
+
+    # Find the maximum message id read by other users in this ticket
+    other_read_res = await session.execute(
+        select(func.max(TicketRead.last_read_message_id)).where(
+            TicketRead.ticket_id == ticket_id,
+            TicketRead.user_id != user.id,
+        )
+    )
+    max_other_read = other_read_res.scalar_one_or_none() or 0
+
     query = select(Message).where(Message.ticket_id == ticket_id)
     if before_id is not None:
         query = query.where(Message.id < before_id)
     query = query.order_by(Message.id.desc()).limit(limit)
     result = await session.execute(query)
     messages = list(reversed(result.scalars().all()))
-    return [MessageOut.model_validate(m) for m in messages]
+
+    out = []
+    for m in messages:
+        mo = MessageOut.model_validate(m)
+        if m.sender_id == user.id:
+            mo.is_read = m.id <= max_other_read
+        else:
+            mo.is_read = True
+        out.append(mo)
+    return out
 
 
 async def upload_attachment(ticket_id: int, file: UploadFile, user: User, session: AsyncSession) -> str:

@@ -44,12 +44,26 @@ async def list_tickets(
 
 @router.get("/{ticket_id}", response_model=TicketOut)
 async def get_ticket(ticket_id: int, user: CurrentUser, session: AsyncSessionDep):
-    return await ticket_service.get_ticket(ticket_id, user, session)
+    ticket = await ticket_service.get_ticket(ticket_id, user, session)
+    max_id = await ticket_service.mark_ticket_read(ticket_id, user, session)
+    if max_id:
+        await manager.broadcast(ticket_id, {
+            "type": "read_receipt",
+            "user_id": user.id,
+            "last_read_id": max_id,
+        })
+    return ticket
 
 
 @router.post("/{ticket_id}/read", status_code=204)
 async def mark_ticket_read(ticket_id: int, user: CurrentUser, session: AsyncSessionDep):
-    await ticket_service.mark_ticket_read(ticket_id, user, session)
+    max_id = await ticket_service.mark_ticket_read(ticket_id, user, session)
+    if max_id:
+        await manager.broadcast(ticket_id, {
+            "type": "read_receipt",
+            "user_id": user.id,
+            "last_read_id": max_id,
+        })
 
 
 @router.patch("/{ticket_id}", response_model=TicketOut)

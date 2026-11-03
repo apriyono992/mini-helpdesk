@@ -6,6 +6,7 @@ from app.db.session import AsyncSessionLocal
 from app.models.message import Message
 from app.models.ticket import Ticket, TicketStatus
 from app.models.user import User, UserRole
+from app.services import ticket_service
 from app.services.chat_manager import manager
 import jwt
 
@@ -61,6 +62,17 @@ async def ticket_ws(ticket_id: int, websocket: WebSocket, token: str = ""):
                     "user_name": display_name,
                     "is_typing": bool(data.get("is_typing", True)),
                 })
+                continue
+
+            if event_type == "read":
+                async with AsyncSessionLocal() as session:
+                    max_id = await ticket_service.mark_ticket_read(ticket_id, user, session)
+                    if max_id:
+                        await manager.broadcast(ticket_id, {
+                            "type": "read_receipt",
+                            "user_id": user_id,
+                            "last_read_id": max_id,
+                        })
                 continue
 
             body = (data.get("body") or "").strip()

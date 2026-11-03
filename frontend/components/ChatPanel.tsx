@@ -185,16 +185,35 @@ export function ChatPanel({
                   </div>
                 )}
                 {m.body && <p className="leading-relaxed whitespace-pre-wrap break-words">{m.body}</p>}
-                <p
-                  className={`text-[10px] mt-1 ${
-                    isMe ? "text-indigo-300 text-right" : "text-gray-400"
+                <div
+                  className={`text-[10px] mt-1 flex items-center gap-1 ${
+                    isMe ? "text-indigo-200 justify-end" : "text-gray-400 justify-start"
                   }`}
                 >
-                  {new Date(m.created_at).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
+                  <span>
+                    {new Date(m.created_at).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                  {isMe && (
+                    m.is_read ? (
+                      /* Ceklis biru (terbaca) */
+                      <span title="Read" className="inline-flex items-center text-sky-300 ml-0.5" aria-label="Read">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M1.5 12.5l4 4L15.5 6.5M7.5 12.5l4 4L21.5 6.5" />
+                        </svg>
+                      </span>
+                    ) : (
+                      /* Ceklis polos (unread) */
+                      <span title="Sent" className="inline-flex items-center text-white/60 ml-0.5" aria-label="Sent">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </span>
+                    )
+                  )}
+                </div>
               </div>
             </div>
           );

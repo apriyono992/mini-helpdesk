@@ -156,3 +156,31 @@ async def test_ws_business_notifications_and_isolation(client: AsyncClient):
         assert event["type"] == "ticket_created"
         assert event["ticket_id"] == t_a["id"]
         assert event["subject"] == "Biz A ticket"
+
+
+@pytest.mark.asyncio
+async def test_message_read_receipt_and_ws_broadcast(client: AsyncClient):
+    tok = await _register(client, "ReceiptBiz", "receipt-admin@biz.com")
+    admin_token = tok["access_token"]
+    cust = await _create_user(client, admin_token, "receipt-cust@biz.com", "customer")
+    cust_token = (await _login(client, "receipt-cust@biz.com"))["access_token"]
+
+    ticket = await _create_ticket(client, cust_token, "Receipt Ticket")
+    t_id = ticket["id"]
+
+    # Customer checks messages: initial message created by customer has is_read = False (admin hasn't read it yet)
+    r_msgs = await client.get(f"/tickets/{t_id}/messages", headers={"Authorization": f"Bearer {cust_token}"})
+    assert r_msgs.status_code == 200
+    msgs = r_msgs.json()
+    assert len(msgs) == 1
+    assert msgs[0]["is_read"] is False
+
+    # Now admin views ticket -> marks ticket as read
+    r_admin_view = await client.get(f"/tickets/{t_id}", headers={"Authorization": f"Bearer {admin_token}"})
+    assert r_admin_view.status_code == 200
+
+    # Customer re-fetches messages -> is_read is now True
+    r_msgs_after = await client.get(f"/tickets/{t_id}/messages", headers={"Authorization": f"Bearer {cust_token}"})
+    assert r_msgs_after.status_code == 200
+    msgs_after = r_msgs_after.json()
+    assert msgs_after[0]["is_read"] is True

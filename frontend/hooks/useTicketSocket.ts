@@ -27,7 +27,13 @@ interface TypingEvent {
   is_typing: boolean;
 }
 
-type WsEvent = TicketUpdateEvent | MessageEvent | TypingEvent;
+interface ReadReceiptEvent {
+  type: "read_receipt";
+  user_id: number;
+  last_read_id: number;
+}
+
+type WsEvent = TicketUpdateEvent | MessageEvent | TypingEvent | ReadReceiptEvent;
 
 export function useTicketSocket(
   ticketId: number,
@@ -73,12 +79,22 @@ export function useTicketSocket(
             } else {
               setTypingText(null);
             }
+          } else if (ev.type === "read_receipt") {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id <= ev.last_read_id ? { ...m, is_read: true } : m
+              )
+            );
           }
         },
         () => {
           if (!unmounted) {
             timer = setTimeout(connect, 3000);
           }
+        },
+        () => {
+          // On open, send read event to mark messages as read
+          ws.send(JSON.stringify({ type: "read" }));
         }
       );
       wsRef.current = ws;

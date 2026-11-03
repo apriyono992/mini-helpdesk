@@ -5,10 +5,12 @@ const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000";
 export function createTicketSocket(
   ticketId: number,
   onMessage: (data: unknown) => void,
-  onClose?: () => void
+  onClose?: () => void,
+  onOpen?: () => void
 ): WebSocket {
   const token = getAccessToken() ?? "";
   const ws = new WebSocket(`${WS_BASE}/ws/tickets/${ticketId}?token=${token}`);
+  if (onOpen) ws.onopen = onOpen;
   ws.onmessage = (e) => {
     try {
       onMessage(JSON.parse(e.data));
