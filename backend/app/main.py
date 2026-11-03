@@ -4,7 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.errors import http_exception_handler, validation_exception_handler
-from app.routers import auth, users, tickets, ws
+from app.routers import auth, users, tickets, ws, categories
 
 app = FastAPI(title="HelpDesk Mini")
 
@@ -22,6 +22,7 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(tickets.router)
+app.include_router(categories.router)
 app.include_router(ws.router)
 
 

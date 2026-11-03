@@ -11,7 +11,7 @@ from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.db.session import AsyncSessionLocal, engine
 from app.db.base import Base
-from app.models import Business, User, Ticket, Message  # register metadata
+from app.models import Business, User, Ticket, Message, Category  # register metadata
 
 
 @pytest.fixture(scope="session")
@@ -27,7 +27,7 @@ async def clean_db():
     async with AsyncSessionLocal() as session:
         # Truncate in reverse FK order
         await session.execute(__import__("sqlalchemy").text(
-            "TRUNCATE messages, tickets, users, businesses RESTART IDENTITY CASCADE"
+            "TRUNCATE messages, tickets, categories, users, businesses RESTART IDENTITY CASCADE"
         ))
         await session.commit()
 
