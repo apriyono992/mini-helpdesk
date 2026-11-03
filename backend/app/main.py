@@ -10,7 +10,20 @@ from app.core.limiter import limiter
 from app.errors import http_exception_handler, validation_exception_handler, rate_limit_handler
 from app.routers import auth, users, tickets, ws, categories
 
-app = FastAPI(title="HelpDesk Mini")
+tags_metadata = [
+    {"name": "auth", "description": "Authentication and user identity operations."},
+    {"name": "users", "description": "Tenant user management. Restricted to Admin."},
+    {"name": "tickets", "description": "Ticket lifecycle, messaging, transitions, attachments."},
+    {"name": "categories", "description": "Ticket categories management. Restricted to Admin."},
+    {"name": "websocket", "description": "Real-time ticket chat and live event updates."},
+]
+
+app = FastAPI(
+    title="HelpDesk Mini API",
+    description="Multi-tenant ticketing system API with role-based access control.",
+    version="1.0.0",
+    openapi_tags=tags_metadata,
+)
 app.state.limiter = limiter
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
@@ -36,6 +49,6 @@ app.include_router(categories.router)
 app.include_router(ws.router)
 
 
-@app.get("/health")
+@app.get("/health", tags=["system"], summary="Health check endpoint")
 async def health():
     return {"status": "ok"}

@@ -37,3 +37,8 @@ class TicketPaginationOut(BaseModel):
     page: int
     limit: int
     pages: int
+
+
+class AttachmentOut(BaseModel):
+    attachment_url: str
+

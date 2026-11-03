@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.deps import CurrentUser
 from app.db.session import AsyncSessionDep
 from app.models.user import UserRole
+from app.schemas.error import ErrorResponse
 from app.schemas.user import UserCreate, UserOut
 from app.services import user_service
 
@@ -15,13 +16,29 @@ def _require_admin(user: CurrentUser) -> CurrentUser:
     return user
 
 
-@router.get("", response_model=list[UserOut])
+@router.get(
+    "",
+    response_model=list[UserOut],
+    summary="List all users in business",
+    description="Returns all users belonging to the current tenant business. Admin only.",
+    responses={403: {"model": ErrorResponse, "description": "Admin access required"}},
+)
 async def list_users(user: CurrentUser, session: AsyncSessionDep):
     _require_admin(user)
     return await user_service.list_users(user.business_id, session)
 
 
-@router.post("", response_model=UserOut, status_code=201)
+@router.post(
+    "",
+    response_model=UserOut,
+    status_code=201,
+    summary="Create a new user in business",
+    description="Registers a new user (admin/agent/customer) within the tenant business. Admin only.",
+    responses={
+        400: {"model": ErrorResponse, "description": "Email already registered"},
+        403: {"model": ErrorResponse, "description": "Admin access required"},
+    },
+)
 async def create_user(data: UserCreate, user: CurrentUser, session: AsyncSessionDep):
     _require_admin(user)
     return await user_service.create_user(data, user.business_id, session)
