@@ -31,7 +31,7 @@ async def _get_ticket_for_user(ticket_id: int, user: User, session: AsyncSession
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
     if user.role == UserRole.customer and ticket.customer_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
-    if user.role == UserRole.agent and ticket.agent_id != user.id:
+    if user.role == UserRole.agent and ticket.agent_id is not None and ticket.agent_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
     return ticket
 
@@ -115,12 +115,34 @@ async def list_tickets(
     search: str | None = None,
     page: int = 1,
     limit: int = 20,
+    assigned: str | None = None,
+    filter_agent_id: int | None = None,
 ) -> TicketPaginationOut:
+    from sqlalchemy import or_
+
     base_query = select(Ticket).where(Ticket.business_id == user.business_id)
+
     if user.role == UserRole.customer:
         base_query = base_query.where(Ticket.customer_id == user.id)
     elif user.role == UserRole.agent:
-        base_query = base_query.where(Ticket.agent_id == user.id)
+        # Agent sees: tickets assigned to them OR unassigned tickets (can filter by assigned)
+        if assigned == "unassigned":
+            base_query = base_query.where(Ticket.agent_id.is_(None))
+        elif assigned == "mine":
+            base_query = base_query.where(Ticket.agent_id == user.id)
+        else:
+            base_query = base_query.where(
+                or_(Ticket.agent_id == user.id, Ticket.agent_id.is_(None))
+            )
+    else:
+        # Admin: optional assignment filters
+        if assigned == "unassigned":
+            base_query = base_query.where(Ticket.agent_id.is_(None))
+        elif assigned == "mine":
+            base_query = base_query.where(Ticket.agent_id == user.id)
+        elif filter_agent_id is not None:
+            base_query = base_query.where(Ticket.agent_id == filter_agent_id)
+
     if status_filter:
         base_query = base_query.where(Ticket.status == status_filter)
     if search and search.strip():

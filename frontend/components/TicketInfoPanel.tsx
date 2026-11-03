@@ -160,6 +160,20 @@ export function TicketInfoPanel({ ticket, currentUser, onStatusChange }: Props) 
                 </select>
               </div>
             )}
+
+            {/* Agent self-assign button for unassigned tickets */}
+            {currentUser.role === "agent" && !ticket.agent_id && (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => assignAgent(currentUser.id)}
+                  disabled={assignLoading}
+                  className="w-full rounded-lg bg-indigo-50 border border-indigo-200 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+                >
+                  {assignLoading ? "Assigning…" : "Assign to me"}
+                </button>
+              </div>
+            )}
           </div>
         )}
 

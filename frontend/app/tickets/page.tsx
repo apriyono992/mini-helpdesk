@@ -36,6 +36,7 @@ export default function TicketsPage({
   // Search & Pagination
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -43,6 +44,16 @@ export default function TicketsPage({
 
   const activeStatus = STATUSES.includes(statusParam as TicketStatus)
     ? (statusParam as TicketStatus)
+    : undefined;
+
+  const assignedParam =
+    assignmentFilter === "unassigned"
+      ? "unassigned"
+      : assignmentFilter === "mine"
+      ? "mine"
+      : undefined;
+  const agentIdParam = assignmentFilter.startsWith("agent:")
+    ? Number(assignmentFilter.replace("agent:", ""))
     : undefined;
 
   // Real-time Business Notifications Socket
@@ -67,7 +78,14 @@ export default function TicketsPage({
           if (ev.type === "ticket_created") {
             setToast(`New ticket: "${ev.subject}"`);
             api.tickets
-              .list({ status: activeStatus, search: searchTerm, page, limit: 10 })
+              .list({
+                status: activeStatus,
+                search: searchTerm,
+                page,
+                limit: 10,
+                assigned: assignedParam,
+                agent_id: agentIdParam,
+              })
               .then((res) => {
                 setTickets(res.items);
                 setTotalPages(res.pages);
@@ -111,7 +129,7 @@ export default function TicketsPage({
       if (timer) clearTimeout(timer);
       ws?.close();
     };
-  }, [user, activeStatus, searchTerm, page]);
+  }, [user, activeStatus, searchTerm, page, assignedParam, agentIdParam]);
 
   useEffect(() => {
     if (!toast) return;
@@ -131,7 +149,7 @@ export default function TicketsPage({
   // Reset page when filter changes
   useEffect(() => {
     setPage(1);
-  }, [activeStatus]);
+  }, [activeStatus, assignmentFilter]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -146,6 +164,8 @@ export default function TicketsPage({
         search: searchTerm,
         page,
         limit: 10,
+        assigned: assignedParam,
+        agent_id: agentIdParam,
       })
       .then((res) => {
         setTickets(res.items);
@@ -155,7 +175,7 @@ export default function TicketsPage({
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Error"))
       .finally(() => setLoading(false));
-  }, [authLoading, user, activeStatus, searchTerm, page, router]);
+  }, [authLoading, user, activeStatus, searchTerm, page, assignedParam, agentIdParam, router]);
 
   useEffect(() => {
     if (user?.role === "admin") {
@@ -274,8 +294,8 @@ export default function TicketsPage({
             )}
           </div>
 
-          {/* Filter tabs */}
-          <div className="flex gap-1 flex-wrap items-center justify-between">
+          {/* Filter tabs and Assignee dropdown */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex gap-1 flex-wrap">
               <Link
                 href="/tickets"
@@ -301,9 +321,35 @@ export default function TicketsPage({
                 </Link>
               ))}
             </div>
-            <span className="text-xs text-gray-500">
-              {totalCount} {totalCount === 1 ? "ticket" : "tickets"}
-            </span>
+
+            <div className="flex items-center justify-between sm:justify-end gap-3">
+              {(user?.role === "admin" || user?.role === "agent") && (
+                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <label htmlFor="assignment-filter" className="whitespace-nowrap font-medium">
+                    Assignee:
+                  </label>
+                  <select
+                    id="assignment-filter"
+                    value={assignmentFilter}
+                    onChange={(e) => setAssignmentFilter(e.target.value)}
+                    className="rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-800 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="all">All</option>
+                    <option value="unassigned">Unassigned</option>
+                    <option value="mine">Assigned to Me</option>
+                    {user?.role === "admin" &&
+                      agents.map((ag) => (
+                        <option key={ag.id} value={`agent:${ag.id}`}>
+                          {ag.full_name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+              <span className="text-xs text-gray-500 whitespace-nowrap">
+                {totalCount} {totalCount === 1 ? "ticket" : "tickets"}
+              </span>
+            </div>
           </div>
         </div>
 

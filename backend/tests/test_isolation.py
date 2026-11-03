@@ -101,24 +101,48 @@ async def test_agent_can_only_see_assigned_tickets(client: AsyncClient):
     ticket = await _create_ticket(client, cust_token, "Unassigned ticket")
     t_id = ticket["id"]
 
-    # Agent 1 cannot see unassigned ticket in list
+    # Agent 1 CAN now see unassigned ticket in list (new behavior)
     r = await client.get("/tickets", headers={"Authorization": f"Bearer {ag1_token}"})
     assert r.status_code == 200
-    assert len(r.json()["items"]) == 0
+    assert len(r.json()["items"]) == 1
+    assert r.json()["items"][0]["id"] == t_id
 
-    # Agent 1 cannot access unassigned ticket directly -> 404
+    # Agent 1 CAN access unassigned ticket directly (new behavior)
     r = await client.get(f"/tickets/{t_id}", headers={"Authorization": f"Bearer {ag1_token}"})
-    assert r.status_code == 404
+    assert r.status_code == 200
 
-    # Agent 1 cannot patch unassigned ticket -> 404
+    # Agent 1 CANNOT patch unassigned ticket with OTHER agent_id -> 403
+    r = await client.patch(
+        f"/tickets/{t_id}",
+        json={"agent_id": ag2_data["id"]},
+        headers={"Authorization": f"Bearer {ag1_token}"},
+    )
+    assert r.status_code == 403
+
+    # Agent 1 CAN self-assign
     r = await client.patch(
         f"/tickets/{t_id}",
         json={"agent_id": ag1_data["id"]},
         headers={"Authorization": f"Bearer {ag1_token}"},
     )
+    assert r.status_code == 200
+
+    # After ag1 assigned, ag2 can no longer see this ticket in list
+    r = await client.get("/tickets", headers={"Authorization": f"Bearer {ag2_token}"})
+    assert r.status_code == 200
+    assert len(r.json()["items"]) == 0
+
+    # ag2 direct access -> 404
+    r = await client.get(f"/tickets/{t_id}", headers={"Authorization": f"Bearer {ag2_token}"})
     assert r.status_code == 404
 
-    # Admin assigns ticket to Agent 2
+    # ag1 can still see their assigned ticket
+    r = await client.get("/tickets", headers={"Authorization": f"Bearer {ag1_token}"})
+    assert r.status_code == 200
+    assert len(r.json()["items"]) == 1
+    assert r.json()["items"][0]["id"] == t_id
+
+    # Admin assigns ticket to Agent 2 (overrides ag1)
     r_assign = await client.patch(
         f"/tickets/{t_id}",
         json={"agent_id": ag2_data["id"]},
@@ -126,7 +150,7 @@ async def test_agent_can_only_see_assigned_tickets(client: AsyncClient):
     )
     assert r_assign.status_code == 200
 
-    # Agent 1 still cannot see ticket -> 404
+    # Agent 1 can no longer see ticket (it now belongs to ag2)
     r = await client.get(f"/tickets/{t_id}", headers={"Authorization": f"Bearer {ag1_token}"})
     assert r.status_code == 404
 
@@ -248,3 +272,53 @@ async def test_attachment_upload_and_isolation(client: AsyncClient):
     r_file = await client.get(att_url)
     assert r_file.status_code == 200
     assert r_file.content == fake_png
+
+
+@pytest.mark.asyncio
+async def test_ticket_assigned_filter(client: AsyncClient):
+    tok = await _register(client, "BizFilterAssign", "admin-filter@biz.com")
+    admin_token = tok["access_token"]
+    ag1 = await _create_user(client, admin_token, "filter-ag1@biz.com", "agent")
+    ag2 = await _create_user(client, admin_token, "filter-ag2@biz.com", "agent")
+    cust = await _create_user(client, admin_token, "filter-cust@biz.com", "customer")
+    cust_token = (await _login(client, "filter-cust@biz.com"))["access_token"]
+    ag1_token = (await _login(client, "filter-ag1@biz.com"))["access_token"]
+
+    t1 = await _create_ticket(client, cust_token, "Ticket 1 unassigned")
+    t2 = await _create_ticket(client, cust_token, "Ticket 2 assigned to ag1")
+    t3 = await _create_ticket(client, cust_token, "Ticket 3 assigned to ag2")
+
+    # Assign t2 to ag1 and t3 to ag2
+    await client.patch(f"/tickets/{t2['id']}", json={"agent_id": ag1["id"]}, headers={"Authorization": f"Bearer {admin_token}"})
+    await client.patch(f"/tickets/{t3['id']}", json={"agent_id": ag2["id"]}, headers={"Authorization": f"Bearer {admin_token}"})
+
+    # 1. Admin filters by assigned=unassigned -> gets t1 only
+    r_unassigned = await client.get("/tickets?assigned=unassigned", headers={"Authorization": f"Bearer {admin_token}"})
+    assert r_unassigned.status_code == 200
+    assert r_unassigned.json()["total"] == 1
+    assert r_unassigned.json()["items"][0]["id"] == t1["id"]
+
+    # 2. Admin filters by agent_id = ag1['id'] -> gets t2 only
+    r_ag1 = await client.get(f"/tickets?agent_id={ag1['id']}", headers={"Authorization": f"Bearer {admin_token}"})
+    assert r_ag1.status_code == 200
+    assert r_ag1.json()["total"] == 1
+    assert r_ag1.json()["items"][0]["id"] == t2["id"]
+
+    # 3. Agent 1 queries /tickets without filter -> sees t1 (unassigned) and t2 (assigned to self), but not t3
+    r_ag1_list = await client.get("/tickets", headers={"Authorization": f"Bearer {ag1_token}"})
+    assert r_ag1_list.status_code == 200
+    ag1_ticket_ids = {t["id"] for t in r_ag1_list.json()["items"]}
+    assert ag1_ticket_ids == {t1["id"], t2["id"]}
+    assert t3["id"] not in ag1_ticket_ids
+
+    # 4. Agent 1 filters assigned=unassigned -> gets t1 only
+    r_ag1_unassigned = await client.get("/tickets?assigned=unassigned", headers={"Authorization": f"Bearer {ag1_token}"})
+    assert r_ag1_unassigned.status_code == 200
+    assert r_ag1_unassigned.json()["total"] == 1
+    assert r_ag1_unassigned.json()["items"][0]["id"] == t1["id"]
+
+    # 5. Agent 1 filters assigned=mine -> gets t2 only
+    r_ag1_mine = await client.get("/tickets?assigned=mine", headers={"Authorization": f"Bearer {ag1_token}"})
+    assert r_ag1_mine.status_code == 200
+    assert r_ag1_mine.json()["total"] == 1
+    assert r_ag1_mine.json()["items"][0]["id"] == t2["id"]

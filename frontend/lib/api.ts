@@ -72,12 +72,21 @@ export const api = {
       request<User>("/users", { method: "POST", body: JSON.stringify(data) }),
   },
   tickets: {
-    list: (params?: { status?: TicketStatus; search?: string; page?: number; limit?: number }) => {
+    list: (params?: {
+      status?: TicketStatus;
+      search?: string;
+      page?: number;
+      limit?: number;
+      assigned?: "unassigned" | "mine";
+      agent_id?: number;
+    }) => {
       const query = new URLSearchParams();
       if (params?.status) query.set("status", params.status);
       if (params?.search) query.set("search", params.search);
       if (params?.page) query.set("page", String(params.page));
       if (params?.limit) query.set("limit", String(params.limit));
+      if (params?.assigned) query.set("assigned", params.assigned);
+      if (params?.agent_id) query.set("agent_id", String(params.agent_id));
       const qs = query.toString();
       return request<PaginatedTickets>(`/tickets${qs ? `?${qs}` : ""}`);
     },

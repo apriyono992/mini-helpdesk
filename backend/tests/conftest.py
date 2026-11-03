@@ -43,6 +43,7 @@ TEST_BIZ_NAMES = [
     "WSNotifA",
     "WSNotifB",
     "ReceiptBiz",
+    "BizFilterAssign",
 ]
 
 # Businesses that must NEVER be touched by test cleanup

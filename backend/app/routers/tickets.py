@@ -31,6 +31,8 @@ async def list_tickets(
     search: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
+    assigned: str | None = Query(default=None, pattern="^(unassigned|mine)$"),
+    agent_id: int | None = Query(default=None),
 ):
     return await ticket_service.list_tickets(
         user,
@@ -39,6 +41,8 @@ async def list_tickets(
         search=search,
         page=page,
         limit=limit,
+        assigned=assigned,
+        filter_agent_id=agent_id,
     )
 
 

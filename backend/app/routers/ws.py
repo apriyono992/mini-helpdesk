@@ -44,7 +44,7 @@ async def ticket_ws(ticket_id: int, websocket: WebSocket, token: str = ""):
         if user.role == UserRole.customer and ticket.customer_id != user.id:
             await websocket.close(code=1008)
             return
-        if user.role == UserRole.agent and ticket.agent_id != user.id:
+        if user.role == UserRole.agent and ticket.agent_id is not None and ticket.agent_id != user.id:
             await websocket.close(code=1008)
             return
 
