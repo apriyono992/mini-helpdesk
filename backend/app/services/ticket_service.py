@@ -9,6 +9,13 @@ from app.schemas.ticket import TicketCreate, TicketOut, TicketPatch
 from app.schemas.message import MessageOut
 
 
+def _to_ticket_out(ticket: Ticket, user: User) -> TicketOut:
+    out = TicketOut.model_validate(ticket)
+    if user.role == UserRole.customer:
+        out.agent_id = None
+    return out
+
+
 async def _get_ticket_for_user(ticket_id: int, user: User, session: AsyncSession) -> Ticket:
     """Load ticket, enforce business isolation + customer ownership."""
     result = await session.execute(select(Ticket).where(Ticket.id == ticket_id))
@@ -16,6 +23,8 @@ async def _get_ticket_for_user(ticket_id: int, user: User, session: AsyncSession
     if ticket is None or ticket.business_id != user.business_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
     if user.role == UserRole.customer and ticket.customer_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+    if user.role == UserRole.agent and ticket.agent_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
     return ticket
 
@@ -39,22 +48,24 @@ async def create_ticket(data: TicketCreate, user: User, session: AsyncSession) -
     session.add(msg)
     await session.commit()
     await session.refresh(ticket)
-    return TicketOut.model_validate(ticket)
+    return _to_ticket_out(ticket, user)
 
 
 async def list_tickets(user: User, session: AsyncSession, status_filter: TicketStatus | None) -> list[TicketOut]:
     query = select(Ticket).where(Ticket.business_id == user.business_id)
     if user.role == UserRole.customer:
         query = query.where(Ticket.customer_id == user.id)
+    elif user.role == UserRole.agent:
+        query = query.where(Ticket.agent_id == user.id)
     if status_filter:
         query = query.where(Ticket.status == status_filter)
     result = await session.execute(query.order_by(Ticket.updated_at.desc()))
-    return [TicketOut.model_validate(t) for t in result.scalars().all()]
+    return [_to_ticket_out(t, user) for t in result.scalars().all()]
 
 
 async def get_ticket(ticket_id: int, user: User, session: AsyncSession) -> TicketOut:
     ticket = await _get_ticket_for_user(ticket_id, user, session)
-    return TicketOut.model_validate(ticket)
+    return _to_ticket_out(ticket, user)
 
 
 def _validate_status_transition(current: TicketStatus, next_status: TicketStatus, user: User) -> None:
@@ -78,6 +89,10 @@ def _validate_status_transition(current: TicketStatus, next_status: TicketStatus
     if current == TicketStatus.open and next_status == TicketStatus.in_progress:
         if user.role == UserRole.customer:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only agent or admin can start progress")
+    # in_progress -> resolved only by agent/admin
+    if current == TicketStatus.in_progress and next_status == TicketStatus.resolved:
+        if user.role == UserRole.customer:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only agent or admin can resolve ticket")
 
 
 async def patch_ticket(ticket_id: int, data: TicketPatch, user: User, session: AsyncSession) -> TicketOut:
@@ -95,7 +110,6 @@ async def patch_ticket(ticket_id: int, data: TicketPatch, user: User, session: A
         if user.role == UserRole.customer:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
         if user.role == UserRole.agent:
-            # agent hanya boleh self-assign
             if data.agent_id != user.id:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Agent can only self-assign")
         # Verify target is an agent in same business
@@ -112,12 +126,21 @@ async def patch_ticket(ticket_id: int, data: TicketPatch, user: User, session: A
 
     await session.commit()
     await session.refresh(ticket)
-    return TicketOut.model_validate(ticket)
+    return _to_ticket_out(ticket, user)
 
 
-async def list_messages(ticket_id: int, user: User, session: AsyncSession) -> list[MessageOut]:
+async def list_messages(
+    ticket_id: int,
+    user: User,
+    session: AsyncSession,
+    limit: int = 20,
+    before_id: int | None = None,
+) -> list[MessageOut]:
     await _get_ticket_for_user(ticket_id, user, session)
-    result = await session.execute(
-        select(Message).where(Message.ticket_id == ticket_id).order_by(Message.created_at)
-    )
-    return [MessageOut.model_validate(m) for m in result.scalars().all()]
+    query = select(Message).where(Message.ticket_id == ticket_id)
+    if before_id is not None:
+        query = query.where(Message.id < before_id)
+    query = query.order_by(Message.id.desc()).limit(limit)
+    result = await session.execute(query)
+    messages = list(reversed(result.scalars().all()))
+    return [MessageOut.model_validate(m) for m in messages]

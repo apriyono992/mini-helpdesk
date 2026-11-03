@@ -43,5 +43,11 @@ async def patch_ticket(ticket_id: int, data: TicketPatch, user: CurrentUser, ses
 
 
 @router.get("/{ticket_id}/messages", response_model=list[MessageOut])
-async def list_messages(ticket_id: int, user: CurrentUser, session: AsyncSessionDep):
-    return await ticket_service.list_messages(ticket_id, user, session)
+async def list_messages(
+    ticket_id: int,
+    user: CurrentUser,
+    session: AsyncSessionDep,
+    limit: int = Query(default=20, ge=1, le=100),
+    before_id: int | None = Query(default=None),
+):
+    return await ticket_service.list_messages(ticket_id, user, session, limit=limit, before_id=before_id)

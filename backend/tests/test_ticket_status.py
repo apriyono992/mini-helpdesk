@@ -20,6 +20,13 @@ async def setup(client):
 
     ticket = await _create_ticket(client, tokens_cust["access_token"], "Status test ticket")
 
+    # Admin assigns ticket to agent
+    await client.patch(
+        f"/tickets/{ticket['id']}",
+        json={"agent_id": agent_data["id"]},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
     # get admin user id via /auth/me
     r_admin = await client.get("/auth/me", headers={"Authorization": f"Bearer {admin_token}"})
     admin_user_id = r_admin.json()["id"]
@@ -65,6 +72,17 @@ async def test_cannot_skip_to_closed(client: AsyncClient, setup):
         headers={"Authorization": f"Bearer {setup['agent_token']}"},
     )
     assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_customer_cannot_mark_resolved(client: AsyncClient, setup):
+    # ticket is in_progress, customer tries to mark resolved -> 403
+    r = await client.patch(
+        f"/tickets/{setup['ticket_id']}",
+        json={"status": "resolved"},
+        headers={"Authorization": f"Bearer {setup['cust_token']}"},
+    )
+    assert r.status_code == 403
 
 
 @pytest.mark.asyncio

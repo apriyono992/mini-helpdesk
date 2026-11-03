@@ -77,3 +77,75 @@ async def test_customer_cannot_see_other_customer_messages(client: AsyncClient):
 
     r = await client.get(f"/tickets/{ticket_id}/messages", headers={"Authorization": f"Bearer {tokens_d2['access_token']}"})
     assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_agent_can_only_see_assigned_tickets(client: AsyncClient):
+    # Setup business with admin, 2 agents, 1 customer
+    tok_admin = await _register(client, "BizAgent-iso", "admin-agent-iso@biz.com")
+    admin_token = tok_admin["access_token"]
+
+    ag1_data = await _create_user(client, admin_token, "ag1-iso@biz.com", "agent")
+    ag2_data = await _create_user(client, admin_token, "ag2-iso@biz.com", "agent")
+    await _create_user(client, admin_token, "cust-ag-iso@biz.com", "customer")
+
+    tok_ag1 = await _login(client, "ag1-iso@biz.com")
+    tok_ag2 = await _login(client, "ag2-iso@biz.com")
+    tok_cust = await _login(client, "cust-ag-iso@biz.com")
+
+    ag1_token = tok_ag1["access_token"]
+    ag2_token = tok_ag2["access_token"]
+    cust_token = tok_cust["access_token"]
+
+    # Customer creates ticket (unassigned)
+    ticket = await _create_ticket(client, cust_token, "Unassigned ticket")
+    t_id = ticket["id"]
+
+    # Agent 1 cannot see unassigned ticket in list
+    r = await client.get("/tickets", headers={"Authorization": f"Bearer {ag1_token}"})
+    assert r.status_code == 200
+    assert len(r.json()) == 0
+
+    # Agent 1 cannot access unassigned ticket directly -> 404
+    r = await client.get(f"/tickets/{t_id}", headers={"Authorization": f"Bearer {ag1_token}"})
+    assert r.status_code == 404
+
+    # Agent 1 cannot patch unassigned ticket -> 404
+    r = await client.patch(
+        f"/tickets/{t_id}",
+        json={"agent_id": ag1_data["id"]},
+        headers={"Authorization": f"Bearer {ag1_token}"},
+    )
+    assert r.status_code == 404
+
+    # Admin assigns ticket to Agent 2
+    r_assign = await client.patch(
+        f"/tickets/{t_id}",
+        json={"agent_id": ag2_data["id"]},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert r_assign.status_code == 200
+
+    # Agent 1 still cannot see ticket -> 404
+    r = await client.get(f"/tickets/{t_id}", headers={"Authorization": f"Bearer {ag1_token}"})
+    assert r.status_code == 404
+
+    # Agent 2 can see ticket in list and detail
+    r = await client.get("/tickets", headers={"Authorization": f"Bearer {ag2_token}"})
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+    assert r.json()[0]["id"] == t_id
+
+    r = await client.get(f"/tickets/{t_id}", headers={"Authorization": f"Bearer {ag2_token}"})
+    assert r.status_code == 200
+    assert r.json()["id"] == t_id
+    assert r.json()["agent_id"] == ag2_data["id"]
+
+    # Customer viewing ticket gets agent_id as None (privacy)
+    r_cust = await client.get(f"/tickets/{t_id}", headers={"Authorization": f"Bearer {cust_token}"})
+    assert r_cust.status_code == 200
+    assert r_cust.json()["agent_id"] is None
+
+    r_cust_list = await client.get("/tickets", headers={"Authorization": f"Bearer {cust_token}"})
+    assert r_cust_list.status_code == 200
+    assert r_cust_list.json()[0]["agent_id"] is None

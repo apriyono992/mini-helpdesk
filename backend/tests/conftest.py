@@ -31,6 +31,9 @@ TEST_BIZ_NAMES = [
     "BizB-iso",
     "BizC-iso",
     "BizD-iso",
+    "WSBizA",
+    "WSBizB",
+    "BizAgent-iso",
 ]
 
 # Businesses that must NEVER be touched by test cleanup
