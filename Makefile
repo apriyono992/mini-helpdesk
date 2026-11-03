@@ -7,12 +7,12 @@ VENV := $(BACKEND_DIR)/.venv/bin
 
 dev:
 	@trap 'kill 0' INT; \
-	$(VENV)/uvicorn app.main:app --reload --app-dir $(BACKEND_DIR) & \
+	cd $(BACKEND_DIR) && ../$(VENV)/uvicorn app.main:app --reload & \
 	npm --prefix $(FRONTEND_DIR) run dev & \
 	wait
 
 backend:
-	$(VENV)/uvicorn app.main:app --reload --app-dir $(BACKEND_DIR)
+	cd $(BACKEND_DIR) && ../$(VENV)/uvicorn app.main:app --reload
 
 frontend:
 	npm --prefix $(FRONTEND_DIR) run dev
