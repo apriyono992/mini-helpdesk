@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
@@ -12,10 +12,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const submitting = useRef(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     e.stopPropagation();
+    if (submitting.current) return;
+    submitting.current = true;
     setLoading(true);
     setError("");
     try {
@@ -25,6 +28,7 @@ export default function LoginPage() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   }
