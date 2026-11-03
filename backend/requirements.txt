@@ -13,3 +13,4 @@ pytest-asyncio
 asyncpg
 greenlet
 slowapi
+python-multipart

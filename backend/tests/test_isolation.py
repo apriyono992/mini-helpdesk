@@ -202,3 +202,49 @@ async def test_ticket_search_and_pagination_isolation(client: AsyncClient):
     assert p2["page"] == 2
     # Ensure items don't overlap
     assert p1["items"][0]["id"] != p2["items"][0]["id"]
+
+
+@pytest.mark.asyncio
+async def test_attachment_upload_and_isolation(client: AsyncClient):
+    tok_a = await _register(client, "AttachBizA", "admin-att-a@biz.com")
+    cust_a = await _create_user(client, tok_a["access_token"], "cust-att-a@biz.com", "customer")
+    c_a_token = (await _login(client, "cust-att-a@biz.com"))["access_token"]
+
+    tok_b = await _register(client, "AttachBizB", "admin-att-b@biz.com")
+    cust_b = await _create_user(client, tok_b["access_token"], "cust-att-b@biz.com", "customer")
+    c_b_token = (await _login(client, "cust-att-b@biz.com"))["access_token"]
+
+    ticket_a = await _create_ticket(client, c_a_token, "Ticket for attachment test")
+    t_a_id = ticket_a["id"]
+
+    # 1. Other tenant (cust_b) attempts upload to ticket_a -> 404
+    fake_png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+    r_unauth = await client.post(
+        f"/tickets/{t_a_id}/attachments",
+        headers={"Authorization": f"Bearer {c_b_token}"},
+        files={"file": ("test.png", fake_png, "image/png")},
+    )
+    assert r_unauth.status_code == 404
+
+    # 2. Upload invalid mime / extension -> 400
+    r_bad_ext = await client.post(
+        f"/tickets/{t_a_id}/attachments",
+        headers={"Authorization": f"Bearer {c_a_token}"},
+        files={"file": ("bad.exe", b"MZbinaryexecutable", "application/x-msdownload")},
+    )
+    assert r_bad_ext.status_code == 400
+
+    # 3. Valid upload by ticket owner -> 200
+    r_ok = await client.post(
+        f"/tickets/{t_a_id}/attachments",
+        headers={"Authorization": f"Bearer {c_a_token}"},
+        files={"file": ("screenshot.png", fake_png, "image/png")},
+    )
+    assert r_ok.status_code == 200
+    att_url = r_ok.json().get("attachment_url")
+    assert att_url and att_url.startswith("/uploads/")
+
+    # 4. Check static file accessibility
+    r_file = await client.get(att_url)
+    assert r_file.status_code == 200
+    assert r_file.content == fake_png

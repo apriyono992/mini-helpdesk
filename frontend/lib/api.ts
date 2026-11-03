@@ -3,6 +3,8 @@ import type { User, Ticket, Message, TokenResponse, TicketStatus, Category, Tick
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+export const API_BASE_URL = BASE;
+
 async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
   const token = getAccessToken();
   const headers: Record<string, string> = {
@@ -81,6 +83,25 @@ export const api = {
     },
     get: (id: number) => request<Ticket>(`/tickets/${id}`),
     markRead: (id: number) => request<void>(`/tickets/${id}/read`, { method: "POST" }),
+    uploadAttachment: async (id: number, file: File): Promise<{ attachment_url: string }> => {
+      const token = getAccessToken();
+      const formData = new FormData();
+      formData.append("file", file);
+      const headers: Record<string, string> = {
+        "X-Device-Id": getDeviceId(),
+      };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`${BASE}/tickets/${id}/attachments`, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Upload failed" }));
+        throw new Error(err.detail || "Upload failed");
+      }
+      return res.json();
+    },
     create: (data: {
       subject: string;
       first_message: string;

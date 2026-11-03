@@ -38,6 +38,8 @@ TEST_BIZ_NAMES = [
     "BizSearchA",
     "BizSearchB",
     "TypingBiz",
+    "AttachBizA",
+    "AttachBizB",
 ]
 
 # Businesses that must NEVER be touched by test cleanup

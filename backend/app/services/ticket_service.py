@@ -1,4 +1,6 @@
-from fastapi import HTTPException, status
+import os
+import uuid
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
 
@@ -8,6 +10,10 @@ from app.models.ticket_read import TicketRead
 from app.models.user import User, UserRole
 from app.schemas.ticket import TicketCreate, TicketOut, TicketPaginationOut, TicketPatch
 from app.schemas.message import MessageOut
+
+ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 
 def _to_ticket_out(ticket: Ticket, user: User) -> TicketOut:
@@ -230,3 +236,28 @@ async def list_messages(
     result = await session.execute(query)
     messages = list(reversed(result.scalars().all()))
     return [MessageOut.model_validate(m) for m in messages]
+
+
+async def upload_attachment(ticket_id: int, file: UploadFile, user: User, session: AsyncSession) -> str:
+    ticket = await _get_ticket_for_user(ticket_id, user, session)
+    if ticket.status == TicketStatus.closed:
+        raise HTTPException(status_code=400, detail="Cannot attach files to closed ticket")
+
+    filename = file.filename or "image.jpg"
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext not in ALLOWED_EXTENSIONS or file.content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(status_code=400, detail="Only image files (jpg, png, webp, gif) are allowed")
+
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File exceeds maximum size of 5MB")
+
+    safe_name = f"{uuid.uuid4().hex}.{ext}"
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+    file_path = os.path.join(upload_dir, safe_name)
+
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    return f"/uploads/{safe_name}"

@@ -1,4 +1,6 @@
+import os
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from slowapi.errors import RateLimitExceeded
@@ -10,6 +12,10 @@ from app.routers import auth, users, tickets, ws, categories
 
 app = FastAPI(title="HelpDesk Mini")
 app.state.limiter = limiter
+
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,

@@ -108,6 +108,7 @@ export default function TicketDetailPage({
         {/* Chat (flex-1 min-h-0, scroll only messages, fixed bottom input) */}
         <div className="order-2 md:order-1 flex-1 min-h-0 rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden flex flex-col">
           <ChatPanel
+            ticketId={ticketId}
             messages={messages}
             currentUser={user}
             isClosed={ticket.status === "closed"}

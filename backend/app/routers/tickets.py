@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, File, Query, UploadFile
 
 from app.core.deps import CurrentUser
 from app.db.session import AsyncSessionDep
@@ -55,6 +55,17 @@ async def patch_ticket(ticket_id: int, data: TicketPatch, user: CurrentUser, ses
         "agent_id": ticket.agent_id,
     })
     return ticket
+
+
+@router.post("/{ticket_id}/attachments")
+async def upload_ticket_attachment(
+    ticket_id: int,
+    user: CurrentUser,
+    session: AsyncSessionDep,
+    file: UploadFile = File(...),
+):
+    url = await ticket_service.upload_attachment(ticket_id, file, user, session)
+    return {"attachment_url": url}
 
 
 @router.get("/{ticket_id}/messages", response_model=list[MessageOut])
