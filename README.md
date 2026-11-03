@@ -131,6 +131,15 @@ File `.env.example` disediakan di root repositori sebagai template tanpa secret 
 | `PORT` | Port service frontend | `3000` |
 | `NEXT_PUBLIC_API_URL` | Base URL API backend untuk browser | `http://localhost:8000` |
 | `NEXT_PUBLIC_WS_URL` | Base URL WebSocket untuk browser | `ws://localhost:8000` |
+| `R2_ACCOUNT_ID` | Cloudflare account ID untuk storage R2 (opsional) | `your-cloudflare-account-id` |
+| `R2_ACCESS_KEY_ID` | S3 Access Key ID untuk Cloudflare R2 (opsional) | `your-r2-access-key-id` |
+| `R2_SECRET_ACCESS_KEY` | S3 Secret Access Key untuk Cloudflare R2 (opsional) | `your-r2-secret-access-key` |
+| `R2_BUCKET_NAME` | Nama bucket Cloudflare R2 (opsional) | `your-r2-bucket-name` |
+| `R2_PUBLIC_URL` | Base public URL bucket R2 (opsional) | `https://pub-your-bucket.r2.dev` |
+| `R2_ENDPOINT_URL` | Custom S3 endpoint URL R2 (opsional) | `https://<account-id>.r2.cloudflarestorage.com` |
+
+*Catatan: Jika variabel R2 tidak diisi, attachment otomatis disimpan ke penyimpanan lokal (`backend/uploads/`).*
+
 
 ---
 
@@ -191,13 +200,15 @@ make test
 # cd backend && .venv/bin/pytest tests/ -v
 ```
 
-Total **35 tes** mencakup:
+Total **40 tes** mencakup:
 - `test_auth.py`: registrasi bisnis, login (dengan rate limiting), refresh token, endpoint `/me`.
 - `test_categories.py`: CRUD kategori tenant dan proteksi role admin.
 - `test_isolation.py`: isolasi data antar-tenant, proteksi akses silang tiket/pesan (return 404), filter unassigned agent.
+- `test_storage.py`: konversi gambar ke format WebP (Pillow), fallback lokal, dan upload Cloudflare R2 (boto3).
 - `test_ticket_status.py`: mesin status tiket (`open` → `in_progress` → `resolved` → `closed`), aturan transisi, dan proteksi reopen.
 - `test_ws.py`: koneksi WebSocket, validasi token sebelum handshake (close code 1008), broadcast pesan & read receipt.
 - `test_openapi.py`: integritas skema OpenAPI `/openapi.json` dan ketersediaan `/docs`.
+
 
 ### Frontend
 

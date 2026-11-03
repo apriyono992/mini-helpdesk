@@ -11,6 +11,7 @@ from app.models.ticket_read import TicketRead
 from app.models.user import User, UserRole
 from app.schemas.ticket import TicketCreate, TicketOut, TicketPaginationOut, TicketPatch
 from app.schemas.message import MessageOut
+from app.services import storage_service
 
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
@@ -318,12 +319,5 @@ async def upload_attachment(ticket_id: int, file: UploadFile, user: User, sessio
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File exceeds maximum size of 5MB")
 
-    safe_name = f"{uuid.uuid4().hex}.{ext}"
-    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
-    os.makedirs(upload_dir, exist_ok=True)
-    file_path = os.path.join(upload_dir, safe_name)
+    return await storage_service.save_attachment(content, filename)
 
-    with open(file_path, "wb") as f:
-        f.write(content)
-
-    return f"/uploads/{safe_name}"

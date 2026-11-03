@@ -14,3 +14,6 @@ asyncpg
 greenlet
 slowapi
 python-multipart
+Pillow
+boto3
+
