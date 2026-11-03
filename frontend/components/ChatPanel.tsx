@@ -167,12 +167,36 @@ export function ChatPanel({
           return (
             <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-[78%] rounded-2xl px-4 py-2.5 text-sm ${
+                className={`max-w-[78%] rounded-2xl px-4 py-2 text-sm ${
                   isMe
                     ? "bg-indigo-600 text-white rounded-br-sm"
                     : "bg-gray-100 text-gray-900 rounded-bl-sm"
                 }`}
               >
+                {/* Header: Sender name and role badge */}
+                <div
+                  className={`text-[11px] font-semibold mb-1 flex items-center gap-1.5 ${
+                    isMe ? "text-indigo-100 justify-end" : "text-gray-800 justify-start"
+                  }`}
+                >
+                  <span>{isMe ? "You" : m.sender_name || `User #${m.sender_id}`}</span>
+                  {m.sender_role && (
+                    <span
+                      className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ${
+                        isMe
+                          ? "bg-indigo-700/60 text-indigo-100"
+                          : m.sender_role === "agent"
+                          ? "bg-blue-100 text-blue-700"
+                          : m.sender_role === "admin"
+                          ? "bg-purple-100 text-purple-700"
+                          : "bg-gray-200 text-gray-700"
+                      }`}
+                    >
+                      {m.sender_role}
+                    </span>
+                  )}
+                </div>
+
                 {imgUrl && (
                   <div className="mb-2">
                     <img

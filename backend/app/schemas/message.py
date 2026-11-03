@@ -6,6 +6,8 @@ class MessageOut(BaseModel):
     id: int
     ticket_id: int
     sender_id: int
+    sender_name: str | None = None
+    sender_role: str | None = None
     body: str
     attachment_url: str | None = None
     is_read: bool = False

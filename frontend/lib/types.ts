@@ -43,6 +43,8 @@ export interface Message {
   id: number;
   ticket_id: number;
   sender_id: number;
+  sender_name?: string | null;
+  sender_role?: string | null;
   body: string;
   attachment_url?: string | null;
   is_read?: boolean;

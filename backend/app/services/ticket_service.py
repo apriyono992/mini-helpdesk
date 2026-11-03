@@ -2,6 +2,7 @@ import os
 import uuid
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlalchemy import func, select
 
 from app.models.ticket import Ticket, TicketPriority, TicketStatus
@@ -278,7 +279,11 @@ async def list_messages(
     )
     max_other_read = other_read_res.scalar_one_or_none() or 0
 
-    query = select(Message).where(Message.ticket_id == ticket_id)
+    query = (
+        select(Message)
+        .options(selectinload(Message.sender))
+        .where(Message.ticket_id == ticket_id)
+    )
     if before_id is not None:
         query = query.where(Message.id < before_id)
     query = query.order_by(Message.id.desc()).limit(limit)
@@ -288,6 +293,9 @@ async def list_messages(
     out = []
     for m in messages:
         mo = MessageOut.model_validate(m)
+        if m.sender:
+            mo.sender_name = m.sender.full_name
+            mo.sender_role = m.sender.role.value if hasattr(m.sender.role, "value") else str(m.sender.role)
         if m.sender_id == user.id:
             mo.is_read = m.id <= max_other_read
         else:

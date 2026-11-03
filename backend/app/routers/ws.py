@@ -107,6 +107,8 @@ async def ticket_ws(ticket_id: int, websocket: WebSocket, token: str = ""):
                 "id": msg.id,
                 "ticket_id": ticket_id,
                 "sender_id": user_id,
+                "sender_name": user.full_name,
+                "sender_role": user.role.value if hasattr(user.role, "value") else str(user.role),
                 "body": body,
                 "attachment_url": attachment_url,
                 "created_at": msg.created_at.isoformat(),

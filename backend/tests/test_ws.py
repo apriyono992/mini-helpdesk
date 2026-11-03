@@ -58,6 +58,8 @@ async def test_ws_auth_and_isolation(client: AsyncClient):
         assert msg["type"] == "message"
         assert msg["body"] == "halo dari test ws"
         assert msg["ticket_id"] == ticket_id
+        assert msg["sender_name"] == "Customer"
+        assert msg["sender_role"] == "customer"
 
     # 5. Message pagination test
     # Currently ticket has first message + "halo dari test ws" = 2 messages
@@ -68,6 +70,8 @@ async def test_ws_auth_and_isolation(client: AsyncClient):
     assert r_all.status_code == 200
     msgs = r_all.json()
     assert len(msgs) == 2
+    assert msgs[0]["sender_name"] == "Customer"
+    assert msgs[0]["sender_role"] == "customer"
 
     # Test limit=1
     r_one = await client.get(
