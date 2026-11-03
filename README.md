@@ -19,16 +19,18 @@ docker compose up --build
 
 ### Manual Setup
 
-#### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL (running locally or via Docker)
+#### 1. Environment Configuration
 
-### 1. Backend
+Cukup buat 1 file `.env` di root direktori project:
+
+```bash
+cp .env.example .env
+```
+
+#### 2. Backend
 
 ```bash
 cd backend
-cp ../.env.example .env          # fill in your values
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -38,18 +40,17 @@ uvicorn app.main:app --reload
 
 Backend runs at http://localhost:8000 — Swagger UI at http://localhost:8000/docs
 
-### 2. Frontend
+#### 3. Frontend
 
 ```bash
 cd frontend
-cp .env.example .env.local       # adjust if backend port differs
 npm install
 npm run dev
 ```
 
 Frontend runs at http://localhost:3000
 
-### 3. Seed demo data (optional)
+#### 4. Seed demo data (optional)
 
 ```bash
 cd backend
@@ -57,24 +58,23 @@ source .venv/bin/activate
 python scripts/seed.py
 ```
 
-## Environment Variables
+## Environment Variables (`.env`)
 
-### Backend (`.env`)
-
-| Variable | Description | Example |
+| Variable | Description | Default / Example |
 |---|---|---|
-| `DATABASE_URL` | PostgreSQL async URL | `postgresql+psycopg://user:pass@localhost:5432/helpdesk` |
-| `SECRET_KEY` | JWT signing secret (32+ chars) | `change-me-random-string` |
+| `POSTGRES_USER` | PostgreSQL user | `postgres` |
+| `POSTGRES_PASSWORD` | PostgreSQL password | `postgrespassword` |
+| `POSTGRES_DB` | PostgreSQL database name | `mini_helpdesk` |
+| `POSTGRES_PORT` | PostgreSQL port | `5432` |
+| `DATABASE_URL` | PostgreSQL connection URL (host dev) | `postgresql+psycopg://postgres:pass@localhost:5432/mini_helpdesk` |
+| `SECRET_KEY` | JWT signing secret (32+ chars) | `change-me-super-secret-jwt-key` |
 | `ALGORITHM` | JWT algorithm | `HS256` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token TTL | `30` |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | Refresh token TTL | `7` |
-
-### Frontend (`.env.local`)
-
-| Variable | Description | Default |
-|---|---|---|
-| `NEXT_PUBLIC_API_URL` | Backend HTTP URL | `http://localhost:8000` |
-| `NEXT_PUBLIC_WS_URL` | Backend WS URL | `ws://localhost:8000` |
+| `CORS_ORIGINS` | Allowed CORS origins | `http://localhost:3000` |
+| `PORT` | Frontend dev/runtime port | `3000` |
+| `NEXT_PUBLIC_API_URL` | Frontend API URL | `http://localhost:8000` |
+| `NEXT_PUBLIC_WS_URL` | Frontend WebSocket URL | `ws://localhost:8000` |
 
 ## Demo Accounts (after seed)
 

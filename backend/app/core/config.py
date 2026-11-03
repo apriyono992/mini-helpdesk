@@ -10,7 +10,11 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     model_config = {
-        "env_file": str(Path(__file__).parent.parent.parent / ".env"),
+        "env_file": [
+            str(Path(__file__).resolve().parents[3] / ".env"),
+            str(Path(__file__).resolve().parents[2] / ".env"),
+            ".env",
+        ],
         "extra": "ignore",
     }
 
