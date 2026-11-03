@@ -1,5 +1,5 @@
 import { getAccessToken, getRefreshToken, saveTokens, clearTokens, getDeviceId } from "./auth";
-import type { User, Ticket, Message, TokenResponse, TicketStatus, Category, TicketPriority } from "./types";
+import type { User, Ticket, Message, TokenResponse, TicketStatus, Category, TicketPriority, PaginatedTickets } from "./types";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -70,9 +70,17 @@ export const api = {
       request<User>("/users", { method: "POST", body: JSON.stringify(data) }),
   },
   tickets: {
-    list: (status?: TicketStatus) =>
-      request<Ticket[]>(`/tickets${status ? `?status=${status}` : ""}`),
+    list: (params?: { status?: TicketStatus; search?: string; page?: number; limit?: number }) => {
+      const query = new URLSearchParams();
+      if (params?.status) query.set("status", params.status);
+      if (params?.search) query.set("search", params.search);
+      if (params?.page) query.set("page", String(params.page));
+      if (params?.limit) query.set("limit", String(params.limit));
+      const qs = query.toString();
+      return request<PaginatedTickets>(`/tickets${qs ? `?${qs}` : ""}`);
+    },
     get: (id: number) => request<Ticket>(`/tickets/${id}`),
+    markRead: (id: number) => request<void>(`/tickets/${id}/read`, { method: "POST" }),
     create: (data: {
       subject: string;
       first_message: string;

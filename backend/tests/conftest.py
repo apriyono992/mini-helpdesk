@@ -35,6 +35,8 @@ TEST_BIZ_NAMES = [
     "WSBizB",
     "BizAgent-iso",
     "RateLimitBiz",
+    "BizSearchA",
+    "BizSearchB",
 ]
 
 # Businesses that must NEVER be touched by test cleanup

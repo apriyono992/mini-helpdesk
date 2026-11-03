@@ -24,7 +24,16 @@ class TicketOut(BaseModel):
     category: str
     priority: TicketPriority
     status: TicketStatus
+    unread_count: int = 0
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class TicketPaginationOut(BaseModel):
+    items: list[TicketOut]
+    total: int
+    page: int
+    limit: int
+    pages: int

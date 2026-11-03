@@ -32,9 +32,30 @@ export default function TicketsPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Search & Pagination
+  const [searchInput, setSearchInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+
   const activeStatus = STATUSES.includes(statusParam as TicketStatus)
     ? (statusParam as TicketStatus)
     : undefined;
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(searchInput);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  // Reset page when filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [activeStatus]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -44,14 +65,21 @@ export default function TicketsPage({
     if (authLoading) return;
     setLoading(true);
     api.tickets
-      .list(activeStatus)
-      .then((t) => {
-        setTickets(t);
+      .list({
+        status: activeStatus,
+        search: searchTerm,
+        page,
+        limit: 10,
+      })
+      .then((res) => {
+        setTickets(res.items);
+        setTotalPages(res.pages);
+        setTotalCount(res.total);
         setSelectedIds([]);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Error"))
       .finally(() => setLoading(false));
-  }, [authLoading, user, activeStatus, router]);
+  }, [authLoading, user, activeStatus, searchTerm, page, router]);
 
   useEffect(() => {
     if (user?.role === "admin") {
@@ -135,31 +163,58 @@ export default function TicketsPage({
       </Navbar>
 
       <main className="mx-auto max-w-3xl px-4 sm:px-6 py-6 space-y-4">
-        {/* Filter tabs */}
-        <div className="flex gap-1 flex-wrap">
-          <Link
-            href="/tickets"
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-              !activeStatus
-                ? "bg-indigo-600 text-white"
-                : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-            }`}
-          >
-            All
-          </Link>
-          {STATUSES.map((s) => (
-            <Link
-              key={s}
-              href={`/tickets?status=${s}`}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                activeStatus === s
-                  ? "bg-indigo-600 text-white"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-              }`}
-            >
-              {STATUS_LABEL[s]}
-            </Link>
-          ))}
+        {/* Search & Filter Header */}
+        <div className="space-y-3">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search tickets by subject..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+            />
+            {searchInput && (
+              <button
+                type="button"
+                onClick={() => setSearchInput("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 bg-gray-100 rounded-full px-2 py-0.5"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Filter tabs */}
+          <div className="flex gap-1 flex-wrap items-center justify-between">
+            <div className="flex gap-1 flex-wrap">
+              <Link
+                href="/tickets"
+                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                  !activeStatus
+                    ? "bg-indigo-600 text-white"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                }`}
+              >
+                All
+              </Link>
+              {STATUSES.map((s) => (
+                <Link
+                  key={s}
+                  href={`/tickets?status=${s}`}
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                    activeStatus === s
+                      ? "bg-indigo-600 text-white"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  }`}
+                >
+                  {STATUS_LABEL[s]}
+                </Link>
+              ))}
+            </div>
+            <span className="text-xs text-gray-500">
+              {totalCount} {totalCount === 1 ? "ticket" : "tickets"}
+            </span>
+          </div>
         </div>
 
         {error && (
@@ -178,7 +233,7 @@ export default function TicketsPage({
                 onChange={handleToggleSelectAll}
                 className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
               />
-              <span>Select all ({tickets.length})</span>
+              <span>Select all on page ({tickets.length})</span>
             </label>
             {selectedIds.length > 0 && (
               <span className="font-medium text-indigo-600">{selectedIds.length} selected</span>
@@ -189,16 +244,43 @@ export default function TicketsPage({
         {loading ? (
           <p className="text-center text-gray-400 py-16 text-sm">Loading tickets…</p>
         ) : (
-          <div className="rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden">
-            <TicketList
-              tickets={tickets}
-              isAdmin={isAdmin}
-              isCustomer={user?.role === "customer"}
-              agents={agents}
-              selectedIds={selectedIds}
-              onToggleSelect={handleToggleSelect}
-              onAssign={handleAssign}
-            />
+          <div className="space-y-4">
+            <div className="rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+              <TicketList
+                tickets={tickets}
+                isAdmin={isAdmin}
+                isCustomer={user?.role === "customer"}
+                agents={agents}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
+                onAssign={handleAssign}
+              />
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-2 py-2 text-sm text-gray-600">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                >
+                  ← Previous
+                </button>
+                <span className="text-xs text-gray-500 font-medium">
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
           </div>
         )}
       </main>

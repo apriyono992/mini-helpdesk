@@ -1,11 +1,12 @@
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.models.ticket import Ticket, TicketStatus
 from app.models.message import Message
+from app.models.ticket_read import TicketRead
 from app.models.user import User, UserRole
-from app.schemas.ticket import TicketCreate, TicketOut, TicketPatch
+from app.schemas.ticket import TicketCreate, TicketOut, TicketPaginationOut, TicketPatch
 from app.schemas.message import MessageOut
 
 
@@ -51,20 +52,105 @@ async def create_ticket(data: TicketCreate, user: User, session: AsyncSession) -
     return _to_ticket_out(ticket, user)
 
 
-async def list_tickets(user: User, session: AsyncSession, status_filter: TicketStatus | None) -> list[TicketOut]:
-    query = select(Ticket).where(Ticket.business_id == user.business_id)
+async def _calculate_unread_counts(ticket_ids: list[int], user_id: int, session: AsyncSession) -> dict[int, int]:
+    if not ticket_ids:
+        return {}
+    reads_res = await session.execute(
+        select(TicketRead.ticket_id, TicketRead.last_read_message_id).where(
+            TicketRead.ticket_id.in_(ticket_ids),
+            TicketRead.user_id == user_id,
+        )
+    )
+    last_reads = dict(reads_res.all())
+
+    msgs_res = await session.execute(
+        select(Message.ticket_id, Message.id).where(
+            Message.ticket_id.in_(ticket_ids),
+            Message.sender_id != user_id,
+        )
+    )
+    unreads: dict[int, int] = {tid: 0 for tid in ticket_ids}
+    for tid, mid in msgs_res.all():
+        if mid > last_reads.get(tid, 0):
+            unreads[tid] = unreads.get(tid, 0) + 1
+    return unreads
+
+
+async def mark_ticket_read(ticket_id: int, user: User, session: AsyncSession) -> None:
+    await _get_ticket_for_user(ticket_id, user, session)
+    latest_msg = await session.execute(
+        select(func.max(Message.id)).where(Message.ticket_id == ticket_id)
+    )
+    max_id = latest_msg.scalar_one_or_none()
+    if not max_id:
+        return
+
+    existing = await session.execute(
+        select(TicketRead).where(TicketRead.ticket_id == ticket_id, TicketRead.user_id == user.id)
+    )
+    read_rec = existing.scalar_one_or_none()
+    if read_rec:
+        read_rec.last_read_message_id = max_id
+    else:
+        read_rec = TicketRead(
+            ticket_id=ticket_id,
+            user_id=user.id,
+            last_read_message_id=max_id,
+        )
+        session.add(read_rec)
+    await session.commit()
+
+
+async def list_tickets(
+    user: User,
+    session: AsyncSession,
+    status_filter: TicketStatus | None = None,
+    search: str | None = None,
+    page: int = 1,
+    limit: int = 20,
+) -> TicketPaginationOut:
+    base_query = select(Ticket).where(Ticket.business_id == user.business_id)
     if user.role == UserRole.customer:
-        query = query.where(Ticket.customer_id == user.id)
+        base_query = base_query.where(Ticket.customer_id == user.id)
     elif user.role == UserRole.agent:
-        query = query.where(Ticket.agent_id == user.id)
+        base_query = base_query.where(Ticket.agent_id == user.id)
     if status_filter:
-        query = query.where(Ticket.status == status_filter)
-    result = await session.execute(query.order_by(Ticket.updated_at.desc()))
-    return [_to_ticket_out(t, user) for t in result.scalars().all()]
+        base_query = base_query.where(Ticket.status == status_filter)
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        base_query = base_query.where(Ticket.subject.ilike(term))
+
+    count_query = select(func.count()).select_from(base_query.subquery())
+    total_res = await session.execute(count_query)
+    total = total_res.scalar_one() or 0
+
+    offset = (page - 1) * limit
+    items_query = base_query.order_by(Ticket.updated_at.desc()).offset(offset).limit(limit)
+    items_res = await session.execute(items_query)
+    tickets = items_res.scalars().all()
+
+    ticket_ids = [t.id for t in tickets]
+    unread_map = await _calculate_unread_counts(ticket_ids, user.id, session)
+
+    items = []
+    for t in tickets:
+        out = _to_ticket_out(t, user)
+        out.unread_count = unread_map.get(t.id, 0)
+        items.append(out)
+
+    pages = (total + limit - 1) // limit if total > 0 else 1
+    return TicketPaginationOut(
+        items=items,
+        total=total,
+        page=page,
+        limit=limit,
+        pages=pages,
+    )
 
 
 async def get_ticket(ticket_id: int, user: User, session: AsyncSession) -> TicketOut:
     ticket = await _get_ticket_for_user(ticket_id, user, session)
+    await mark_ticket_read(ticket_id, user, session)
     return _to_ticket_out(ticket, user)
 
 

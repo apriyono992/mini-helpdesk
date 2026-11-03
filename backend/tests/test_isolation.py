@@ -104,7 +104,7 @@ async def test_agent_can_only_see_assigned_tickets(client: AsyncClient):
     # Agent 1 cannot see unassigned ticket in list
     r = await client.get("/tickets", headers={"Authorization": f"Bearer {ag1_token}"})
     assert r.status_code == 200
-    assert len(r.json()) == 0
+    assert len(r.json()["items"]) == 0
 
     # Agent 1 cannot access unassigned ticket directly -> 404
     r = await client.get(f"/tickets/{t_id}", headers={"Authorization": f"Bearer {ag1_token}"})
@@ -133,8 +133,8 @@ async def test_agent_can_only_see_assigned_tickets(client: AsyncClient):
     # Agent 2 can see ticket in list and detail
     r = await client.get("/tickets", headers={"Authorization": f"Bearer {ag2_token}"})
     assert r.status_code == 200
-    assert len(r.json()) == 1
-    assert r.json()[0]["id"] == t_id
+    assert len(r.json()["items"]) == 1
+    assert r.json()["items"][0]["id"] == t_id
 
     r = await client.get(f"/tickets/{t_id}", headers={"Authorization": f"Bearer {ag2_token}"})
     assert r.status_code == 200
@@ -148,4 +148,57 @@ async def test_agent_can_only_see_assigned_tickets(client: AsyncClient):
 
     r_cust_list = await client.get("/tickets", headers={"Authorization": f"Bearer {cust_token}"})
     assert r_cust_list.status_code == 200
-    assert r_cust_list.json()[0]["agent_id"] is None
+    assert r_cust_list.json()["items"][0]["agent_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_ticket_search_and_pagination_isolation(client: AsyncClient):
+    tok_a = await _register(client, "BizSearchA", "admin-search-a@biz.com")
+    cust_a = await _create_user(client, tok_a["access_token"], "cust-search-a@biz.com", "customer")
+    c_a_token = (await _login(client, "cust-search-a@biz.com"))["access_token"]
+
+    tok_b = await _register(client, "BizSearchB", "admin-search-b@biz.com")
+    cust_b = await _create_user(client, tok_b["access_token"], "cust-search-b@biz.com", "customer")
+    c_b_token = (await _login(client, "cust-search-b@biz.com"))["access_token"]
+
+    # Customer A creates 3 tickets
+    await _create_ticket(client, c_a_token, "ALPHA issue with printer")
+    await _create_ticket(client, c_a_token, "ALPHA payment failure")
+    await _create_ticket(client, c_a_token, "BETA network down")
+
+    # Customer B creates 1 ticket with ALPHA in subject
+    await _create_ticket(client, c_b_token, "ALPHA secret server down")
+
+    # Customer A searches "ALPHA" -> gets only 2 tickets from Biz A
+    r_a = await client.get("/tickets?search=ALPHA", headers={"Authorization": f"Bearer {c_a_token}"})
+    assert r_a.status_code == 200
+    data_a = r_a.json()
+    assert data_a["total"] == 2
+    assert len(data_a["items"]) == 2
+    for item in data_a["items"]:
+        assert "ALPHA" in item["subject"]
+        assert "secret server" not in item["subject"]
+
+    # Customer B searches "ALPHA" -> gets only 1 ticket from Biz B
+    r_b = await client.get("/tickets?search=ALPHA", headers={"Authorization": f"Bearer {c_b_token}"})
+    assert r_b.status_code == 200
+    data_b = r_b.json()
+    assert data_b["total"] == 1
+    assert data_b["items"][0]["subject"] == "ALPHA secret server down"
+
+    # Pagination test for Customer A
+    r_page1 = await client.get("/tickets?limit=2&page=1", headers={"Authorization": f"Bearer {c_a_token}"})
+    assert r_page1.status_code == 200
+    p1 = r_page1.json()
+    assert p1["total"] == 3
+    assert len(p1["items"]) == 2
+    assert p1["page"] == 1
+    assert p1["pages"] == 2
+
+    r_page2 = await client.get("/tickets?limit=2&page=2", headers={"Authorization": f"Bearer {c_a_token}"})
+    assert r_page2.status_code == 200
+    p2 = r_page2.json()
+    assert len(p2["items"]) == 1
+    assert p2["page"] == 2
+    # Ensure items don't overlap
+    assert p1["items"][0]["id"] != p2["items"][0]["id"]

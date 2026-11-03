@@ -99,6 +99,14 @@ export function TicketList({
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
+                {Boolean(t.unread_count && t.unread_count > 0) && (
+                  <span
+                    title={`${t.unread_count} unread messages`}
+                    className="inline-flex items-center justify-center bg-rose-500 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] shadow-sm animate-pulse"
+                  >
+                    {t.unread_count}
+                  </span>
+                )}
                 <StatusBadge status={t.status} />
               </div>
             </Link>

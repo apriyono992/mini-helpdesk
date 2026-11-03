@@ -26,8 +26,17 @@ export interface Ticket {
   category: string;
   priority: TicketPriority;
   status: TicketStatus;
+  unread_count?: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface PaginatedTickets {
+  items: Ticket[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
 }
 
 export interface Message {
