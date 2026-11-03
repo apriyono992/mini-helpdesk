@@ -51,9 +51,26 @@ async def ticket_ws(ticket_id: int, websocket: WebSocket, token: str = ""):
     try:
         while True:
             data = await websocket.receive_json()
-            body = (data.get("body") or "").strip()
-            if not body:
+            event_type = data.get("type", "message")
+
+            if event_type == "typing":
+                display_name = "Agent" if user.role == UserRole.agent else user.full_name
+                await manager.broadcast(ticket_id, {
+                    "type": "typing",
+                    "user_id": user_id,
+                    "user_name": display_name,
+                    "is_typing": bool(data.get("is_typing", True)),
+                })
                 continue
+
+            body = (data.get("body") or "").strip()
+            attachment_url = data.get("attachment_url")
+            if not body and not attachment_url:
+                continue
+
+            # Fallback text if body is empty but attachment is present
+            if not body and attachment_url:
+                body = "Sent an attachment"
 
             async with AsyncSessionLocal() as session:
                 # Re-check ticket status (closed rejects messages)
@@ -63,7 +80,12 @@ async def ticket_ws(ticket_id: int, websocket: WebSocket, token: str = ""):
                     await websocket.send_json({"error": "Ticket is closed"})
                     continue
 
-                msg = Message(ticket_id=ticket_id, sender_id=user_id, body=body)
+                msg = Message(
+                    ticket_id=ticket_id,
+                    sender_id=user_id,
+                    body=body,
+                    attachment_url=attachment_url,
+                )
                 session.add(msg)
                 await session.commit()
                 await session.refresh(msg)
@@ -74,6 +96,7 @@ async def ticket_ws(ticket_id: int, websocket: WebSocket, token: str = ""):
                 "ticket_id": ticket_id,
                 "sender_id": user_id,
                 "body": body,
+                "attachment_url": attachment_url,
                 "created_at": msg.created_at.isoformat(),
             })
     except (WebSocketDisconnect, Exception):

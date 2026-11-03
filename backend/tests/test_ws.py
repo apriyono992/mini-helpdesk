@@ -102,3 +102,23 @@ async def test_ws_auth_and_isolation(client: AsyncClient):
         ws.send_json({"body": "pesan saat tutup"})
         err = ws.receive_json()
         assert "error" in err
+
+
+@pytest.mark.asyncio
+async def test_ws_typing_indicator(client: AsyncClient):
+    tok = await _register(client, "TypingBiz", "typing-admin@biz.com")
+    cust = await _create_user(client, tok["access_token"], "typing-cust@biz.com", "customer")
+    cust_token = (await _login(client, "typing-cust@biz.com"))["access_token"]
+
+    ticket = await _create_ticket(client, cust_token, "Typing Ticket")
+    t_id = ticket["id"]
+
+    tc = TestClient(app)
+    with tc.websocket_connect(f"/ws/tickets/{t_id}?token={cust_token}") as ws1:
+        with tc.websocket_connect(f"/ws/tickets/{t_id}?token={tok['access_token']}") as ws2:
+            # Customer sends typing event
+            ws1.send_json({"type": "typing", "is_typing": True})
+            ev = ws2.receive_json()
+            assert ev["type"] == "typing"
+            assert ev["is_typing"] is True
+            assert ev["user_id"] == cust["id"]

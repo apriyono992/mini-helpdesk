@@ -37,6 +37,7 @@ TEST_BIZ_NAMES = [
     "RateLimitBiz",
     "BizSearchA",
     "BizSearchB",
+    "TypingBiz",
 ]
 
 # Businesses that must NEVER be touched by test cleanup

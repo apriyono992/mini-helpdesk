@@ -16,19 +16,30 @@ interface MessageEvent {
   ticket_id: number;
   sender_id: number;
   body: string;
+  attachment_url?: string | null;
   created_at: string;
 }
 
-type WsEvent = TicketUpdateEvent | MessageEvent;
+interface TypingEvent {
+  type: "typing";
+  user_id: number;
+  user_name: string;
+  is_typing: boolean;
+}
+
+type WsEvent = TicketUpdateEvent | MessageEvent | TypingEvent;
 
 export function useTicketSocket(
   ticketId: number,
   initialMessages: Message[],
   onTicketUpdate: (patch: Pick<Ticket, "status" | "agent_id">) => void,
   enabled: boolean = true,
+  currentUserId?: number,
 ) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [typingText, setTypingText] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setMessages(initialMessages);
@@ -48,8 +59,20 @@ export function useTicketSocket(
           const ev = data as WsEvent;
           if (ev.type === "message") {
             setMessages((prev) => (prev.some((m) => m.id === ev.id) ? prev : [...prev, ev]));
+            setTypingText(null);
           } else if (ev.type === "ticket_update") {
             onTicketUpdate({ status: ev.status, agent_id: ev.agent_id });
+          } else if (ev.type === "typing") {
+            if (currentUserId && ev.user_id === currentUserId) return;
+            if (ev.is_typing) {
+              setTypingText(`${ev.user_name} is typing...`);
+              if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+              typingTimerRef.current = setTimeout(() => {
+                setTypingText(null);
+              }, 3000);
+            } else {
+              setTypingText(null);
+            }
           }
         },
         () => {
@@ -66,17 +89,24 @@ export function useTicketSocket(
     return () => {
       unmounted = true;
       if (timer) clearTimeout(timer);
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
       wsRef.current?.close();
       wsRef.current = null;
     };
   // onTicketUpdate intentionally omitted — caller must memoize if needed
   // ponytail: add useCallback in parent if stale-closure bugs appear
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticketId, enabled]);
+  }, [ticketId, enabled, currentUserId]);
 
-  function send(body: string) {
+  function send(body: string, attachmentUrl?: string) {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ body }));
+      wsRef.current.send(JSON.stringify({ type: "message", body, attachment_url: attachmentUrl }));
+    }
+  }
+
+  function sendTyping(isTyping: boolean = true) {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "typing", is_typing: isTyping }));
     }
   }
 
@@ -88,5 +118,5 @@ export function useTicketSocket(
     });
   }
 
-  return { messages, send, prependMessages };
+  return { messages, send, sendTyping, typingText, prependMessages };
 }

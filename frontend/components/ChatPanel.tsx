@@ -6,7 +6,9 @@ interface Props {
   messages: Message[];
   currentUser: User;
   isClosed: boolean;
-  onSend: (body: string) => void;
+  onSend: (body: string, attachmentUrl?: string) => void;
+  onTyping?: (isTyping: boolean) => void;
+  typingText?: string | null;
   onLoadOlder?: () => Promise<void>;
   hasMore?: boolean;
   loadingOlder?: boolean;
@@ -17,6 +19,8 @@ export function ChatPanel({
   currentUser,
   isClosed,
   onSend,
+  onTyping,
+  typingText,
   onLoadOlder,
   hasMore = false,
   loadingOlder = false,
@@ -25,8 +29,9 @@ export function ChatPanel({
   const listRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isFirstLoad = useRef(true);
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto scroll to bottom on initial load
+  // Auto scroll to bottom on initial load or new message
   useEffect(() => {
     if (isFirstLoad.current && messages.length > 0) {
       if (listRef.current) {
@@ -56,10 +61,23 @@ export function ChatPanel({
     }
   }
 
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setInput(e.target.value);
+    if (onTyping) {
+      onTyping(true);
+      if (typingTimer.current) clearTimeout(typingTimer.current);
+      typingTimer.current = setTimeout(() => {
+        onTyping(false);
+      }, 1500);
+    }
+  }
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const body = input.trim();
     if (!body || isClosed) return;
+    if (typingTimer.current) clearTimeout(typingTimer.current);
+    onTyping?.(false);
     onSend(body);
     setInput("");
     setTimeout(() => {
@@ -123,6 +141,14 @@ export function ChatPanel({
         <div ref={bottomRef} />
       </div>
 
+      {/* Ephemeral Typing Indicator Banner */}
+      {typingText && (
+        <div className="shrink-0 px-4 py-1.5 text-xs text-indigo-600 bg-indigo-50/70 border-t border-indigo-100/50 flex items-center gap-1.5 animate-pulse">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping"></span>
+          <span>{typingText}</span>
+        </div>
+      )}
+
       {/* Fixed bottom input / closed banner */}
       {isClosed ? (
         <div className="shrink-0 border-t border-gray-100 px-4 py-3 bg-gray-50">
@@ -134,7 +160,7 @@ export function ChatPanel({
             className="flex-1 rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             placeholder="Type a message…"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
           />
           <button
             type="submit"

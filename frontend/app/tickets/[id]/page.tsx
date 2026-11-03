@@ -44,13 +44,14 @@ export default function TicketDetailPage({
 
   const socketEnabled = !authLoading && !loading && !!user && !isNaN(ticketId);
 
-  const { messages, send, prependMessages } = useTicketSocket(
+  const { messages, send, sendTyping, typingText, prependMessages } = useTicketSocket(
     ticketId,
     initialMessages,
     (patch) => {
       setTicket((prev) => (prev ? { ...prev, ...patch } : prev));
     },
     socketEnabled,
+    user?.id,
   );
 
   async function loadOlderMessages() {
@@ -111,6 +112,8 @@ export default function TicketDetailPage({
             currentUser={user}
             isClosed={ticket.status === "closed"}
             onSend={send}
+            onTyping={sendTyping}
+            typingText={typingText}
             onLoadOlder={loadOlderMessages}
             hasMore={hasMore}
             loadingOlder={loadingOlder}
