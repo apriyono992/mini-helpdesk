@@ -33,69 +33,81 @@ Layanan siap diakses pada:
 
 ---
 
-### Opsi B: Setup Manual (Host Dev)
+### Opsi B: Setup Lokal via Makefile
 
-#### 1. Konfigurasi Environment Variable
+Jika ingin menjalankan langsung di host mesin lokal menggunakan `make`:
 
-Salin template konfigurasi di root direktori project:
-
+#### 1. Salin Environment Variable
 ```bash
 cp .env.example .env
 ```
+*Pastikan database PostgreSQL lokal aktif dan sesuai dengan `DATABASE_URL` di `.env`.*
 
-Pastikan variabel `DATABASE_URL` mengarah ke instance PostgreSQL lokal Anda.
-
-#### 2. Siapkan Database PostgreSQL
-
-Jika menggunakan PostgreSQL via Docker:
+#### 2. Install Dependensi (Backend & Frontend)
 ```bash
-docker run --name mini-helpdesk-db \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgrespassword \
-  -e POSTGRES_DB=mini_helpdesk \
-  -p 5432:5432 \
-  -d postgres:16-alpine
+make install
+```
+*Perintah ini otomatis membuat virtual environment Python `backend/.venv` jika belum ada, menginstall seluruh paket Python di backend, dan menginstall dependensi npm di frontend.*
+
+#### 3. Migrasi Database & Masukkan Data Demo
+```bash
+make migrate
+make seed
 ```
 
-#### 3. Setup & Jalankan Backend
-
+#### 4. Jalankan Aplikasi
 ```bash
-cd backend
-
-# Buat dan aktifkan virtual environment
-python -m venv .venv
-source .venv/bin/activate       # Windows: .venv\Scripts\activate
-
-# Install dependensi
-pip install -r requirements.txt
-
-# Jalankan migrasi database
-alembic upgrade head
-
-# Masukkan seed demo data (2 bisnis × 4 user)
-python scripts/seed.py
-
-# Jalankan development server
-uvicorn app.main:app --reload --port 8000
+make dev
 ```
+*Perintah ini menjalankan server backend FastAPI (`http://localhost:8000`) dan frontend Next.js (`http://localhost:3000`) secara bersamaan dalam satu terminal.*
 
-Backend aktif di `http://localhost:8000`.
+---
 
-#### 4. Setup & Jalankan Frontend
+### Cara Masuk & Mengakses Project
 
-Di terminal baru:
+Setelah server berjalan (`docker compose` atau `make dev`), akses aplikasi melalui browser:
 
-```bash
-cd frontend
+1. **Aplikasi Web**: [http://localhost:3000](http://localhost:3000) (otomatis dialihkan ke `/login` jika belum autentikasi)
+2. **Halaman Login**: [http://localhost:3000/login](http://localhost:3000/login)
+3. **Pendaftaran Bisnis Baru**: [http://localhost:3000/register](http://localhost:3000/register)
+4. **Dokumentasi API Interaktif**:
+   - Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
+   - ReDoc: [http://localhost:8000/redoc](http://localhost:8000/redoc)
 
-# Install dependencies
-npm install
+#### Login Cepat dengan Akun Demo (Seed)
 
-# Jalankan Next.js development server
-npm run dev
-```
+Gunakan kredensial berikut untuk masuk dan menguji alur multi-tenant:
 
-Frontend aktif di `http://localhost:3000`.
+**Bisnis 1: Acme Corp**
+| Peran | Email | Password | Halaman Masuk Utama |
+|---|---|---|---|
+| **Admin** | `admin@acme.com` | `admin1234` | `/tickets`, `/admin/users`, `/admin/categories` |
+| **Agent** | `agent@acme.com` | `agent1234` | `/tickets` (ambil tiket unassigned & respon chat) |
+| **Customer 1** | `cust1@acme.com` | `cust1234` | `/tickets` (buat tiket baru & chat privat) |
+| **Customer 2** | `cust2@acme.com` | `cust1234` | `/tickets` (terisolasi dari tiket customer 1) |
+
+**Bisnis 2: Globex Inc (Isolasi Antar-Tenant)**
+| Peran | Email | Password | Catatan Akses |
+|---|---|---|---|
+| **Admin** | `admin@globex.com` | `admin1234` | Tidak bisa melihat data Acme Corp |
+| **Agent** | `agent@globex.com` | `agent1234` | Hanya tiket Globex Inc |
+| **Customer 1** | `cust1@globex.com` | `cust1234` | Tidak bisa akses tiket Acme Corp (404) |
+
+---
+
+### Daftar Perintah Makefile
+
+| Perintah | Deskripsi |
+|---|---|
+| `make install` | Buat venv Python & install semua dependensi backend + frontend |
+| `make migrate` | Jalankan migrasi skema database Alembic (`upgrade head`) |
+| `make seed` | Isi database dengan 2 tenant demo bisnis dan pengguna |
+| `make dev` | Jalankan server backend dan frontend bersamaan |
+| `make backend` | Jalankan hanya server backend FastAPI (`:8000`) |
+| `make frontend` | Jalankan hanya server frontend Next.js (`:3000`) |
+| `make test` | Jalankan seluruh unit & integration test pytest |
+| `make docker-up` | Jalankan seluruh stack via Docker Compose di background |
+| `make docker-down` | Hentikan container Docker Compose |
 
 ---
 
@@ -127,9 +139,9 @@ File `.env.example` disediakan di root repositori sebagai template tanpa secret 
 Jalankan script seed data:
 
 ```bash
-cd backend
-source .venv/bin/activate
-python scripts/seed.py
+make seed
+# atau secara manual:
+# cd backend && .venv/bin/python scripts/seed.py
 ```
 
 Script bersifat **idempotent** (aman dijalankan berulang tanpa duplikasi data). Script membuat 2 bisnis terisolasi beserta kategori dan 4 akun per bisnis:
@@ -174,9 +186,9 @@ Untuk mencoba request endpoint terproteksi di Swagger:
 ### Backend
 
 ```bash
-cd backend
-source .venv/bin/activate
-pytest tests/ -v
+make test
+# atau secara manual:
+# cd backend && .venv/bin/pytest tests/ -v
 ```
 
 Total **35 tes** mencakup:
