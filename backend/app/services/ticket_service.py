@@ -65,7 +65,7 @@ def _validate_status_transition(current: TicketStatus, next_status: TicketStatus
     }
     if next_status not in allowed[current]:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=422,
             detail=f"Cannot transition from {current} to {next_status}",
         )
     # resolved -> open only by customer owner (enforced in patch_ticket)
