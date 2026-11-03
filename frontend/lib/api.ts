@@ -1,5 +1,5 @@
 import { getAccessToken, getRefreshToken, saveTokens, clearTokens } from "./auth";
-import type { User, Ticket, Message, TokenResponse, TicketStatus } from "./types";
+import type { User, Ticket, Message, TokenResponse, TicketStatus, Category, TicketPriority } from "./types";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -72,10 +72,23 @@ export const api = {
     list: (status?: TicketStatus) =>
       request<Ticket[]>(`/tickets${status ? `?status=${status}` : ""}`),
     get: (id: number) => request<Ticket>(`/tickets/${id}`),
-    create: (data: { subject: string; first_message: string }) =>
-      request<Ticket>("/tickets", { method: "POST", body: JSON.stringify(data) }),
+    create: (data: {
+      subject: string;
+      first_message: string;
+      category?: string;
+      priority?: TicketPriority;
+    }) => request<Ticket>("/tickets", { method: "POST", body: JSON.stringify(data) }),
     patch: (id: number, data: { status?: TicketStatus; agent_id?: number }) =>
       request<Ticket>(`/tickets/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     messages: (id: number) => request<Message[]>(`/tickets/${id}/messages`),
+  },
+  categories: {
+    list: () => request<Category[]>("/categories"),
+    create: (data: { name: string }) =>
+      request<Category>("/categories", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: { name: string }) =>
+      request<Category>(`/categories/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (id: number) =>
+      request<void>(`/categories/${id}`, { method: "DELETE" }),
   },
 };

@@ -1,5 +1,13 @@
 export type Role = "admin" | "agent" | "customer";
 export type TicketStatus = "open" | "in_progress" | "resolved" | "closed";
+export type TicketPriority = "low" | "medium" | "high";
+
+export interface Category {
+  id: number;
+  business_id: number;
+  name: string;
+  created_at: string;
+}
 
 export interface User {
   id: number;
@@ -15,6 +23,8 @@ export interface Ticket {
   customer_id: number;
   agent_id: number | null;
   subject: string;
+  category: string;
+  priority: TicketPriority;
   status: TicketStatus;
   created_at: string;
   updated_at: string;

@@ -4,11 +4,21 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { Navbar } from "@/components/Navbar";
+import type { Category, TicketPriority } from "@/lib/types";
 
+const PRIORITIES: { value: TicketPriority; label: string; color: string }[] = [
+  { value: "low", label: "Low", color: "text-gray-600 border-gray-200 hover:border-gray-300" },
+  { value: "medium", label: "Medium", color: "text-amber-700 border-amber-200 bg-amber-50" },
+  { value: "high", label: "High", color: "text-red-700 border-red-200 bg-red-50" },
+];
 
 export default function NewTicketPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("other");
+  const [customCategory, setCustomCategory] = useState("");
+  const [priority, setPriority] = useState<TicketPriority>("medium");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -17,14 +27,38 @@ export default function NewTicketPage() {
   useEffect(() => {
     if (!authLoading && !user) router.push("/login");
     if (!authLoading && user && user.role !== "customer") router.push("/tickets");
+    if (!authLoading && user && user.role === "customer") {
+      api.categories
+        .list()
+        .then((cats) => {
+          setCategories(cats);
+          if (cats.length > 0) {
+            setSelectedCategory(cats[0].name);
+          } else {
+            setSelectedCategory("other");
+          }
+        })
+        .catch(() => {});
+    }
   }, [authLoading, user, router]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    const finalCategory =
+      selectedCategory === "other"
+        ? (customCategory.trim() || "Other")
+        : selectedCategory;
+
     try {
-      const ticket = await api.tickets.create({ subject, first_message: message });
+      const ticket = await api.tickets.create({
+        subject,
+        first_message: message,
+        category: finalCategory,
+        priority,
+      });
       router.push(`/tickets/${ticket.id}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error");
@@ -66,8 +100,55 @@ export default function NewTicketPage() {
                 className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Category</label>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                >
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Priority</label>
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as TicketPriority)}
+                  className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white capitalize"
+                >
+                  {PRIORITIES.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {selectedCategory === "other" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Custom Category</label>
+                <input
+                  required
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                  placeholder="Specify other category…"
+                  className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+            )}
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Message</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">First Message</label>
               <textarea
                 required
                 rows={5}
@@ -77,6 +158,7 @@ export default function NewTicketPage() {
                 className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
               />
             </div>
+
             <div className="flex gap-3 pt-1">
               <button
                 type="button"

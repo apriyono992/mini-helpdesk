@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
@@ -53,12 +54,14 @@ export default function AdminUsersPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar user={user ?? null}>
-        <button
-          onClick={() => router.push("/tickets")}
-          className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-        >
-          ← Tickets
-        </button>
+        <div className="flex items-center gap-3">
+          <Link href="/tickets" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+            Tickets
+          </Link>
+          <Link href="/admin/categories" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+            Categories
+          </Link>
+        </div>
       </Navbar>
 
       <main className="mx-auto max-w-3xl px-4 sm:px-6 py-6 space-y-6">

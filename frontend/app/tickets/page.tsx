@@ -55,9 +55,14 @@ export default function TicketsPage({
       {/* Navbar */}
       <Navbar user={user ?? null} onLogout={logout}>
         {user?.role === "admin" && (
-          <Link href="/admin/users" className="text-sm text-gray-600 hover:text-gray-900">
-            Users
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/admin/users" className="text-sm text-gray-600 hover:text-gray-900">
+              Users
+            </Link>
+            <Link href="/admin/categories" className="text-sm text-gray-600 hover:text-gray-900">
+              Categories
+            </Link>
+          </div>
         )}
         {user?.role === "customer" && (
           <Link

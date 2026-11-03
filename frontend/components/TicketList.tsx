@@ -11,6 +11,12 @@ function formatDate(iso: string) {
   });
 }
 
+const PRIORITY_STYLE: Record<string, string> = {
+  high: "text-red-600 font-medium",
+  medium: "text-amber-600",
+  low: "text-gray-400",
+};
+
 export function TicketList({ tickets }: { tickets: Ticket[] }) {
   if (tickets.length === 0) {
     return (
@@ -29,7 +35,17 @@ export function TicketList({ tickets }: { tickets: Ticket[] }) {
               <p className="truncate text-sm font-medium text-gray-900">
                 {t.subject}
               </p>
-              <p className="text-xs text-gray-400 mt-0.5">#{t.id} · {formatDate(t.created_at)}</p>
+              <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5">
+                <span>#{t.id}</span>
+                <span>·</span>
+                <span className="capitalize">{t.category}</span>
+                <span>·</span>
+                <span className={`capitalize ${PRIORITY_STYLE[t.priority] ?? "text-gray-400"}`}>
+                  {t.priority}
+                </span>
+                <span>·</span>
+                <span>{formatDate(t.created_at)}</span>
+              </p>
             </div>
             <StatusBadge status={t.status} />
           </Link>

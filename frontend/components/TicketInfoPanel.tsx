@@ -62,6 +62,17 @@ export function TicketInfoPanel({ ticket, currentUser, onStatusChange }: Props) 
         <p className="text-sm text-gray-700 leading-relaxed">{ticket.subject}</p>
       </div>
 
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Category</p>
+          <p className="text-sm text-gray-700 capitalize">{ticket.category}</p>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Priority</p>
+          <p className="text-sm text-gray-700 capitalize">{ticket.priority}</p>
+        </div>
+      </div>
+
       <div>
         <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Agent</p>
         <p className="text-sm text-gray-700">{ticket.agent_id ?? "Unassigned"}</p>
