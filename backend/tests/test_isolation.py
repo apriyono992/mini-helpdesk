@@ -35,9 +35,35 @@ async def test_business_a_cannot_see_business_b_ticket(client: AsyncClient):
     r = await client.get(f"/tickets/{ticket_b_id}", headers={"Authorization": f"Bearer {cust_a_token}"})
     assert r.status_code == 404, f"Expected 404, got {r.status_code}: {r.text}"
 
-    # Admin A tries too -> 404
+    # Admin A tries to access ticket from B -> 404
     r = await client.get(f"/tickets/{ticket_b_id}", headers={"Authorization": f"Bearer {admin_a_token}"})
     assert r.status_code == 404, f"Expected 404, got {r.status_code}: {r.text}"
+
+    # Admin A tries to patch ticket from B -> 404
+    r_patch = await client.patch(
+        f"/tickets/{ticket_b_id}",
+        json={"status": "in_progress"},
+        headers={"Authorization": f"Bearer {admin_a_token}"},
+    )
+    assert r_patch.status_code == 404, f"Expected 404, got {r_patch.status_code}"
+
+    # Customer A tries to read messages of ticket from B -> 404
+    r_msgs = await client.get(
+        f"/tickets/{ticket_b_id}/messages",
+        headers={"Authorization": f"Bearer {cust_a_token}"},
+    )
+    assert r_msgs.status_code == 404, f"Expected 404, got {r_msgs.status_code}"
+
+    # Customer A tries to mark ticket from B as read -> 404
+    r_read = await client.post(
+        f"/tickets/{ticket_b_id}/read",
+        headers={"Authorization": f"Bearer {cust_a_token}"},
+    )
+    assert r_read.status_code == 404, f"Expected 404, got {r_read.status_code}"
+
+    # Guessing nonexistent random ticket ID -> 404
+    r_guess = await client.get("/tickets/999999", headers={"Authorization": f"Bearer {cust_a_token}"})
+    assert r_guess.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -59,6 +85,14 @@ async def test_customer_cannot_see_other_customer_ticket_same_business(client: A
     # Customer 2 tries to access -> 404
     r = await client.get(f"/tickets/{ticket_id}", headers={"Authorization": f"Bearer {tokens_c2['access_token']}"})
     assert r.status_code == 404, f"Expected 404, got {r.status_code}: {r.text}"
+
+    # Customer 2 tries to patch -> 404
+    r_patch = await client.patch(
+        f"/tickets/{ticket_id}",
+        json={"status": "open"},
+        headers={"Authorization": f"Bearer {tokens_c2['access_token']}"},
+    )
+    assert r_patch.status_code == 404
 
 
 @pytest.mark.asyncio
