@@ -1,6 +1,7 @@
 """
-Shared fixtures: dua business terpisah, masing-masing 1 admin + 1 customer.
-Semua fixture pakai AsyncClient langsung ke app (tidak butuh server running).
+Shared fixtures: two separate businesses, each with 1 admin + 1 customer.
+Uses ASGI transport directly — no running server needed.
+Tables are truncated at the start of each session to keep tests idempotent.
 """
 import asyncio
 import pytest
@@ -18,6 +19,17 @@ def event_loop():
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def clean_db():
+    """Truncate all tables before the test session to ensure idempotent runs."""
+    async with AsyncSessionLocal() as session:
+        # Truncate in reverse FK order
+        await session.execute(__import__("sqlalchemy").text(
+            "TRUNCATE messages, tickets, users, businesses RESTART IDENTITY CASCADE"
+        ))
+        await session.commit()
 
 
 @pytest_asyncio.fixture(scope="session")

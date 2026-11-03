@@ -33,7 +33,9 @@ async def register_business(data: RegisterBusiness, session: AsyncSession) -> To
 
 async def login(data: LoginRequest, session: AsyncSession) -> TokenResponse:
     result = await session.execute(select(User).where(User.email == data.email))
-    user = result.scalar_one_or_none()
+    # ponytail: email not globally unique (unique per business). scalars().first() takes
+    # first match. Add global email uniqueness migration if cross-business same-email is needed.
+    user = result.scalars().first()
     if user is None or not verify_password(data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
