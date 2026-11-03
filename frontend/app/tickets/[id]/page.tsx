@@ -56,7 +56,7 @@ export default function TicketDetailPage({
   if (!ticket || !user) return null;
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen md:h-screen bg-gray-50 md:overflow-hidden">
       {/* Header */}
       <Navbar user={user}>
         <button
@@ -69,22 +69,23 @@ export default function TicketDetailPage({
       </Navbar>
 
       {/* Body */}
-      <div className="flex-1 min-h-0 mx-auto w-full max-w-5xl px-4 sm:px-6 py-4 flex flex-col md:flex-row gap-4">
-        {/* Chat */}
-        <div className="flex-1 min-h-0 rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 mx-auto w-full max-w-5xl px-4 sm:px-6 py-4 flex flex-col md:flex-row gap-4 overflow-y-auto md:overflow-hidden">
+        {/* Info panel (top on mobile, right on desktop) */}
+        <div className="order-1 md:order-2 md:w-60 shrink-0">
+          <TicketInfoPanel
+            ticket={ticket}
+            currentUser={user}
+            onStatusChange={setTicket}
+          />
+        </div>
+
+        {/* Chat (bottom on mobile, left on desktop) */}
+        <div className="order-2 md:order-1 flex-1 min-h-[450px] md:min-h-0 rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden flex flex-col">
           <ChatPanel
             messages={messages}
             currentUser={user}
             isClosed={ticket.status === "closed"}
             onSend={send}
-          />
-        </div>
-        {/* Info panel */}
-        <div className="md:w-60 shrink-0">
-          <TicketInfoPanel
-            ticket={ticket}
-            currentUser={user}
-            onStatusChange={setTicket}
           />
         </div>
       </div>
