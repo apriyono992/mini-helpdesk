@@ -33,11 +33,17 @@ TEST_BIZ_NAMES = [
     "BizD-iso",
 ]
 
+# Businesses that must NEVER be touched by test cleanup
+PROTECTED_BIZ_NAMES = ["Acme Corp", "Globex Inc"]
+
 
 async def _clean_test_data():
     async with AsyncSessionLocal() as session:
         biz_res = await session.execute(
-            select(Business.id).where(Business.name.in_(TEST_BIZ_NAMES))
+            select(Business.id).where(
+                Business.name.in_(TEST_BIZ_NAMES),
+                Business.name.not_in(PROTECTED_BIZ_NAMES),
+            )
         )
         biz_ids = list(biz_res.scalars().all())
         if biz_ids:
