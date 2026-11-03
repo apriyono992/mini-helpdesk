@@ -11,7 +11,11 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE}${path}`, { ...init, headers });
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers,
+    signal: AbortSignal.timeout(10_000),
+  });
 
   if (res.status === 401 && retry) {
     const refreshed = await tryRefresh();
