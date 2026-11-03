@@ -9,7 +9,13 @@ export function createTicketSocket(
 ): WebSocket {
   const token = getAccessToken() ?? "";
   const ws = new WebSocket(`${WS_BASE}/ws/tickets/${ticketId}?token=${token}`);
-  ws.onmessage = (e) => onMessage(JSON.parse(e.data));
+  ws.onmessage = (e) => {
+    try {
+      onMessage(JSON.parse(e.data));
+    } catch {
+      // ignore malformed message
+    }
+  };
   if (onClose) ws.onclose = onClose;
   return ws;
 }

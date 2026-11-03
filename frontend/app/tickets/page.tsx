@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { TicketList } from "@/components/TicketList";
 import { Navbar } from "@/components/Navbar";
-import type { Ticket, TicketStatus } from "@/lib/types";
+import type { Ticket, TicketStatus, User } from "@/lib/types";
 
 const STATUSES: TicketStatus[] = ["open", "in_progress", "resolved", "closed"];
 const STATUS_LABEL: Record<TicketStatus, string> = {
@@ -16,7 +16,6 @@ const STATUS_LABEL: Record<TicketStatus, string> = {
   closed: "Closed",
 };
 
-// searchParams is a Promise in this version
 export default function TicketsPage({
   searchParams,
 }: {
@@ -26,6 +25,10 @@ export default function TicketsPage({
   const router = useRouter();
   const { user, loading: authLoading, logout } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [agents, setAgents] = useState<User[]>([]);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkAgentId, setBulkAgentId] = useState<string>("");
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -42,19 +45,76 @@ export default function TicketsPage({
     setLoading(true);
     api.tickets
       .list(activeStatus)
-      .then(setTickets)
+      .then((t) => {
+        setTickets(t);
+        setSelectedIds([]);
+      })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Error"))
       .finally(() => setLoading(false));
   }, [authLoading, user, activeStatus, router]);
 
+  useEffect(() => {
+    if (user?.role === "admin") {
+      api.users
+        .list()
+        .then((u) => setAgents(u.filter((x) => x.role === "agent")))
+        .catch(() => {});
+    }
+  }, [user]);
+
+  function handleToggleSelect(id: number) {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  function handleToggleSelectAll() {
+    if (selectedIds.length === tickets.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(tickets.map((t) => t.id));
+    }
+  }
+
+  async function handleAssign(ticketId: number, agentId: number) {
+    try {
+      const updated = await api.tickets.patch(ticketId, { agent_id: agentId });
+      setTickets((prev) => prev.map((t) => (t.id === ticketId ? updated : t)));
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Failed to assign");
+    }
+  }
+
+  async function handleBulkAssign() {
+    if (!bulkAgentId || selectedIds.length === 0) return;
+    const targetId = Number(bulkAgentId);
+    setBulkLoading(true);
+    try {
+      await Promise.all(
+        selectedIds.map((id) => api.tickets.patch(id, { agent_id: targetId }))
+      );
+      setTickets((prev) =>
+        prev.map((t) => (selectedIds.includes(t.id) ? { ...t, agent_id: targetId } : t))
+      );
+      setSelectedIds([]);
+      setBulkAgentId("");
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Failed to bulk assign");
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
   if (authLoading)
     return <div className="flex min-h-screen items-center justify-center text-gray-400">Loading…</div>;
 
+  const isAdmin = user?.role === "admin";
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-20">
       {/* Navbar */}
       <Navbar user={user ?? null} onLogout={logout}>
-        {user?.role === "admin" && (
+        {isAdmin && (
           <div className="flex items-center gap-3">
             <Link href="/admin/users" className="text-sm text-gray-600 hover:text-gray-900">
               Users
@@ -108,14 +168,82 @@ export default function TicketsPage({
           </p>
         )}
 
+        {/* Select all bar for Admin */}
+        {isAdmin && tickets.length > 0 && !loading && (
+          <div className="flex items-center justify-between px-2 py-1 text-xs text-gray-500">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={selectedIds.length === tickets.length && tickets.length > 0}
+                onChange={handleToggleSelectAll}
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+              <span>Select all ({tickets.length})</span>
+            </label>
+            {selectedIds.length > 0 && (
+              <span className="font-medium text-indigo-600">{selectedIds.length} selected</span>
+            )}
+          </div>
+        )}
+
         {loading ? (
           <p className="text-center text-gray-400 py-16 text-sm">Loading tickets…</p>
         ) : (
           <div className="rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden">
-            <TicketList tickets={tickets} />
+            <TicketList
+              tickets={tickets}
+              isAdmin={isAdmin}
+              isCustomer={user?.role === "customer"}
+              agents={agents}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
+              onAssign={handleAssign}
+            />
           </div>
         )}
       </main>
+
+      {/* Floating bulk action bar for Admin */}
+      {isAdmin && selectedIds.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 w-[94%] max-w-xl bg-gray-900 text-white rounded-2xl shadow-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 border border-gray-800">
+          <div className="flex items-center gap-2.5">
+            <span className="inline-flex items-center justify-center bg-indigo-500 text-white text-xs font-bold rounded-full w-6 h-6">
+              {selectedIds.length}
+            </span>
+            <span className="text-sm font-medium text-gray-200">tickets selected</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <select
+              value={bulkAgentId}
+              onChange={(e) => setBulkAgentId(e.target.value)}
+              className="rounded-lg bg-gray-800 border border-gray-700 text-white text-xs px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            >
+              <option value="">Choose agent…</option>
+              {agents.map((ag) => (
+                <option key={ag.id} value={ag.id}>
+                  {ag.full_name} (#{ag.id})
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={!bulkAgentId || bulkLoading}
+              onClick={handleBulkAssign}
+              className="rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 px-3.5 py-2 text-xs font-semibold text-white transition-colors"
+            >
+              {bulkLoading ? "Assigning…" : "Assign"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds([])}
+              className="rounded-lg text-gray-400 hover:text-white px-2 py-2 text-xs font-medium"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

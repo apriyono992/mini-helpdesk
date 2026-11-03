@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Message, User } from "@/lib/types";
 
 interface Props {
@@ -7,11 +7,54 @@ interface Props {
   currentUser: User;
   isClosed: boolean;
   onSend: (body: string) => void;
+  onLoadOlder?: () => Promise<void>;
+  hasMore?: boolean;
+  loadingOlder?: boolean;
 }
 
-export function ChatPanel({ messages, currentUser, isClosed, onSend }: Props) {
+export function ChatPanel({
+  messages,
+  currentUser,
+  isClosed,
+  onSend,
+  onLoadOlder,
+  hasMore = false,
+  loadingOlder = false,
+}: Props) {
   const [input, setInput] = useState("");
+  const listRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const isFirstLoad = useRef(true);
+
+  // Auto scroll to bottom on initial load
+  useEffect(() => {
+    if (isFirstLoad.current && messages.length > 0) {
+      if (listRef.current) {
+        listRef.current.scrollTop = listRef.current.scrollHeight;
+      }
+      isFirstLoad.current = false;
+    }
+  }, [messages]);
+
+  async function handleLoadOlder() {
+    if (!listRef.current || !onLoadOlder || !hasMore || loadingOlder) return;
+    const el = listRef.current;
+    const oldScrollHeight = el.scrollHeight;
+    const oldScrollTop = el.scrollTop;
+    await onLoadOlder();
+    requestAnimationFrame(() => {
+      if (listRef.current) {
+        listRef.current.scrollTop = listRef.current.scrollHeight - oldScrollHeight + oldScrollTop;
+      }
+    });
+  }
+
+  function handleScroll() {
+    if (!listRef.current || !onLoadOlder || !hasMore || loadingOlder) return;
+    if (listRef.current.scrollTop <= 10) {
+      void handleLoadOlder();
+    }
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -19,15 +62,38 @@ export function ChatPanel({ messages, currentUser, isClosed, onSend }: Props) {
     if (!body || isClosed) return;
     onSend(body);
     setInput("");
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    setTimeout(() => {
+      if (listRef.current) {
+        listRef.current.scrollTop = listRef.current.scrollHeight;
+      }
+    }, 50);
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto space-y-3 p-4">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
+      {/* Scrollable messages container */}
+      <div
+        ref={listRef}
+        onScroll={handleScroll}
+        className="flex-1 min-h-0 overflow-y-auto space-y-3 p-4"
+      >
+        {hasMore && (
+          <div className="py-2 text-center">
+            <button
+              type="button"
+              onClick={handleLoadOlder}
+              disabled={loadingOlder}
+              className="text-xs text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+            >
+              {loadingOlder ? "Loading older messages…" : "Load older messages"}
+            </button>
+          </div>
+        )}
+
         {messages.length === 0 && (
           <p className="text-center text-gray-400 text-sm py-8">No messages yet.</p>
         )}
+
         {messages.map((m) => {
           const isMe = m.sender_id === currentUser.id;
           return (
@@ -39,7 +105,7 @@ export function ChatPanel({ messages, currentUser, isClosed, onSend }: Props) {
                     : "bg-gray-100 text-gray-900 rounded-bl-sm"
                 }`}
               >
-                <p className="leading-relaxed">{m.body}</p>
+                <p className="leading-relaxed whitespace-pre-wrap break-words">{m.body}</p>
                 <p
                   className={`text-[10px] mt-1 ${
                     isMe ? "text-indigo-300 text-right" : "text-gray-400"
@@ -57,12 +123,13 @@ export function ChatPanel({ messages, currentUser, isClosed, onSend }: Props) {
         <div ref={bottomRef} />
       </div>
 
+      {/* Fixed bottom input / closed banner */}
       {isClosed ? (
-        <div className="border-t border-gray-100 px-4 py-3 bg-gray-50">
+        <div className="shrink-0 border-t border-gray-100 px-4 py-3 bg-gray-50">
           <p className="text-center text-sm text-gray-400">This ticket is closed.</p>
         </div>
       ) : (
-        <form onSubmit={submit} className="border-t border-gray-100 flex gap-2 p-3 bg-white">
+        <form onSubmit={submit} className="shrink-0 border-t border-gray-100 flex gap-2 p-3 bg-white">
           <input
             className="flex-1 rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             placeholder="Type a message…"
@@ -72,7 +139,7 @@ export function ChatPanel({ messages, currentUser, isClosed, onSend }: Props) {
           <button
             type="submit"
             disabled={!input.trim()}
-            className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors"
+            className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors shrink-0"
           >
             Send
           </button>

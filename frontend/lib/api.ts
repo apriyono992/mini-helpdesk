@@ -80,7 +80,13 @@ export const api = {
     }) => request<Ticket>("/tickets", { method: "POST", body: JSON.stringify(data) }),
     patch: (id: number, data: { status?: TicketStatus; agent_id?: number }) =>
       request<Ticket>(`/tickets/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    messages: (id: number) => request<Message[]>(`/tickets/${id}/messages`),
+    messages: (id: number, params?: { limit?: number; before_id?: number }) => {
+      const query = new URLSearchParams();
+      if (params?.limit) query.set("limit", String(params.limit));
+      if (params?.before_id) query.set("before_id", String(params.before_id));
+      const qs = query.toString();
+      return request<Message[]>(`/tickets/${id}/messages${qs ? `?${qs}` : ""}`);
+    },
   },
   categories: {
     list: () => request<Category[]>("/categories"),
