@@ -35,6 +35,7 @@ export interface Message {
   ticket_id: number;
   sender_id: number;
   body: string;
+  attachment_url?: string | null;
   created_at: string;
 }
 
