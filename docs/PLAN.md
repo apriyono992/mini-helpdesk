@@ -97,7 +97,7 @@ Kunci desain sejak awal:
 
 ### B. BONUS (hanya jika semua wajib selesai; urut prioritas)
 
-- [ ] 1. Docker Compose (frontend + backend + db satu perintah)
+- [x] 1. Docker Compose (frontend + backend + db satu perintah)
 - [ ] 2. pytest lebih lengkap (status, auth)
 - [ ] 3. Rate limiting login (`slowapi`)
 - [ ] 4. Pagination + pencarian tiket

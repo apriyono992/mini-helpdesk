@@ -16,11 +16,25 @@ services:
       timeout: 5s
       retries: 5
 
+  migration:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: helpdesk_migration
+    command: ["sh", "-c", "alembic upgrade head && python scripts/seed.py"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgrespassword@db:5432/mini_helpdesk
+      SECRET_KEY: test_super_secret_jwt_key_helpdesk_mini_2026
+    depends_on:
+      db:
+        condition: service_healthy
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: helpdesk_backend
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgrespassword@db:5432/mini_helpdesk
       SECRET_KEY: test_super_secret_jwt_key_helpdesk_mini_2026
@@ -32,6 +46,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migration:
+        condition: service_completed_successfully
 
   frontend:
     build:

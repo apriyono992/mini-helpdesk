@@ -4,7 +4,22 @@ Multi-tenant ticketing app. Backend FastAPI + Frontend Next.js App Router.
 
 ## Quick Start
 
-### Prerequisites
+### Satu Perintah via Docker Compose
+
+Jalankan seluruh stack (Postgres + auto migration & seed + Backend + Frontend):
+
+```bash
+docker compose up --build
+```
+
+- Frontend: http://localhost:3000
+- Backend & Swagger: http://localhost:8000 / http://localhost:8000/docs
+
+---
+
+### Manual Setup
+
+#### Prerequisites
 - Python 3.11+
 - Node.js 18+
 - PostgreSQL (running locally or via Docker)
