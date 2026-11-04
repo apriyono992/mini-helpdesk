@@ -59,6 +59,16 @@ export function useTicketSocket(
     let unmounted = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
+    function sendRead() {
+      if (
+        wsRef.current?.readyState === WebSocket.OPEN &&
+        typeof document !== "undefined" &&
+        document.visibilityState === "visible"
+      ) {
+        wsRef.current.send(JSON.stringify({ type: "read" }));
+      }
+    }
+
     function connect() {
       if (unmounted) return;
       const ws = createTicketSocket(
@@ -66,8 +76,23 @@ export function useTicketSocket(
         (data) => {
           const ev = data as WsEvent;
           if (ev.type === "message") {
-            setMessages((prev) => (prev.some((m) => m.id === ev.id) ? prev : [...prev, ev]));
+            const isMe = currentUserId !== undefined && ev.sender_id === currentUserId;
+            const newMsg: Message = {
+              ...ev,
+              is_read: isMe ? false : true,
+            };
+            setMessages((prev) => (prev.some((m) => m.id === ev.id) ? prev : [...prev, newMsg]));
             setTypingText(null);
+
+            // If incoming message from other user and tab is active, mark read immediately
+            if (
+              !isMe &&
+              ws.readyState === WebSocket.OPEN &&
+              typeof document !== "undefined" &&
+              document.visibilityState === "visible"
+            ) {
+              ws.send(JSON.stringify({ type: "read" }));
+            }
           } else if (ev.type === "ticket_update") {
             onTicketUpdate({ status: ev.status, agent_id: ev.agent_id });
           } else if (ev.type === "typing") {
@@ -82,11 +107,14 @@ export function useTicketSocket(
               setTypingText(null);
             }
           } else if (ev.type === "read_receipt") {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id <= ev.last_read_id ? { ...m, is_read: true } : m
-              )
-            );
+            // Only update messages sent by current user when the other participant reads them
+            if (currentUserId !== undefined && ev.user_id !== currentUserId) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id <= ev.last_read_id ? { ...m, is_read: true } : m
+                )
+              );
+            }
           }
         },
         () => {
@@ -95,8 +123,14 @@ export function useTicketSocket(
           }
         },
         () => {
-          // On open, send read event to mark messages as read
-          ws.send(JSON.stringify({ type: "read" }));
+          // On open, send read event if tab is visible
+          if (
+            ws.readyState === WebSocket.OPEN &&
+            typeof document !== "undefined" &&
+            document.visibilityState === "visible"
+          ) {
+            ws.send(JSON.stringify({ type: "read" }));
+          }
         }
       );
       wsRef.current = ws;
@@ -104,10 +138,23 @@ export function useTicketSocket(
 
     connect();
 
+    function handleFocusOrVisibility() {
+      sendRead();
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("focus", handleFocusOrVisibility);
+      document.addEventListener("visibilitychange", handleFocusOrVisibility);
+    }
+
     return () => {
       unmounted = true;
       if (timer) clearTimeout(timer);
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("focus", handleFocusOrVisibility);
+        document.removeEventListener("visibilitychange", handleFocusOrVisibility);
+      }
       wsRef.current?.close();
       wsRef.current = null;
     };
