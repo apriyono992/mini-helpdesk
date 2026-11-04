@@ -268,3 +268,6 @@ Aturan:
 2. **Isolasi Tenant Ketat**: Setiap query database tiket/pesan/kategori wajib memfilter `business_id` dari token sesi yang tervalidasi.
 3. **Response 404 untuk Akses Tak Berhak**: Mencoba mengakses tiket milik customer lain atau bisnis lain menghasilkan kode status `404 Not Found` (mencegah information disclosure).
 4. **WebSocket Pre-Handshake Auth**: Verifikasi JWT dan hak akses tiket dilakukan **sebelum** koneksi di-accept. Penolakan menghasilkan close code `1008 Policy Violation`.
+
+## Catatan
+1. **Upload file** : untuk upload ke R2 belum sempat di test, jadi sementara upload file ke folder uploads
