@@ -30,3 +30,12 @@ async def test_openapi_schema(client: AsyncClient):
 async def test_swagger_docs_accessible(client: AsyncClient):
     res = await client.get("/docs")
     assert res.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_cors_origin_from_settings(client: AsyncClient):
+    res = await client.get("/health", headers={"Origin": "http://localhost:3000"})
+    assert res.status_code == 200
+    assert res.headers.get("access-control-allow-origin") == "http://localhost:3000"
+    assert res.headers.get("access-control-allow-credentials") == "true"
+
