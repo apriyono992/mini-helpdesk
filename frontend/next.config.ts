@@ -19,11 +19,29 @@ for (const envPath of envCandidates) {
   }
 }
 
+const isDev = process.env.NODE_ENV !== "production";
+const backendOrigin = process.env.BACKEND_URL ?? "http://localhost:8000";
+const defaultWs = isDev ? "ws://localhost:8000" : "";
+
 const nextConfig: NextConfig = {
+  output: "standalone",
   cacheComponents: false,
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000",
-    NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000",
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? (isDev ? "http://localhost:8000" : "/api"),
+    NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL ?? defaultWs,
+  },
+  async rewrites() {
+    if (!isDev) return [];
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${backendOrigin}/:path*`,
+      },
+      {
+        source: "/uploads/:path*",
+        destination: `${backendOrigin}/uploads/:path*`,
+      },
+    ];
   },
   turbopack: {
     rules: {

@@ -1,9 +1,25 @@
 import { getAccessToken, getRefreshToken, saveTokens, clearTokens, getDeviceId } from "./auth";
 import type { User, Ticket, Message, TokenResponse, TicketStatus, Category, TicketPriority, PaginatedTickets } from "./types";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+function getApiBase(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (envUrl !== undefined && envUrl !== "") {
+    return envUrl.replace(/\/+$/, "");
+  }
+  return "/api";
+}
+
+const BASE = getApiBase();
 
 export const API_BASE_URL = BASE;
+
+function buildApiUrl(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (BASE.endsWith("/api") && normalizedPath.startsWith("/api/")) {
+    return `${BASE}${normalizedPath.slice(4)}`;
+  }
+  return `${BASE}${normalizedPath}`;
+}
 
 async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
   const token = getAccessToken();
@@ -14,7 +30,7 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(buildApiUrl(path), {
     ...init,
     headers,
     signal: AbortSignal.timeout(10_000),
@@ -43,7 +59,7 @@ async function tryRefresh(): Promise<boolean> {
   const refresh_token = getRefreshToken();
   if (!refresh_token) return false;
   try {
-    const res = await fetch(`${BASE}/auth/refresh`, {
+    const res = await fetch(buildApiUrl("/auth/refresh"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token }),
@@ -104,7 +120,7 @@ export const api = {
         "X-Device-Id": getDeviceId(),
       };
       if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch(`${BASE}/tickets/${id}/attachments`, {
+      const res = await fetch(buildApiUrl(`/tickets/${id}/attachments`), {
         method: "POST",
         headers,
         body: formData,
